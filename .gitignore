@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Backend local artifacts
+backend/.venv/
+backend/.mypy_cache/
+backend/calisto.db
