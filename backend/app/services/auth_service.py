@@ -1,62 +1,24 @@
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, hash_password, verify_password
-from app.models.organization import Organization
-from app.models.user import Role, User
-
-DEMO_USERS = [
-    {
-        "email": "admin@calisto.ai",
-        "full_name": "Calisto Admin",
-        "password": "admin1234",
-        "role": Role.admin,
-    },
-    {
-        "email": "member@calisto.ai",
-        "full_name": "Calisto Member",
-        "password": "member1234",
-        "role": Role.member,
-    },
-    {
-        "email": "viewer@calisto.ai",
-        "full_name": "Calisto Viewer",
-        "password": "viewer1234",
-        "role": Role.viewer,
-    },
-]
+from app.core.security import create_access_token, decode_access_token, verify_password
+from app.models import User
 
 
-def ensure_demo_seed_data(db: Session) -> None:
-    organization = db.query(Organization).filter(Organization.name == "Calisto Demo Org").first()
-    if not organization:
-        organization = Organization(name="Calisto Demo Org")
-        db.add(organization)
-        db.flush()
+class AuthService:
+    def __init__(self, db: Session) -> None:
+        self.db = db
 
-    for seed in DEMO_USERS:
-        existing = db.query(User).filter(User.email == seed["email"]).first()
-        if existing:
-            continue
-        user = User(
-            email=seed["email"],
-            full_name=seed["full_name"],
-            hashed_password=hash_password(seed["password"]),
-            role=seed["role"],
-            organization_id=organization.id,
-        )
-        db.add(user)
-    db.commit()
+    def authenticate(self, email: str, password: str) -> str | None:
+        user = self.db.query(User).filter(User.email == email).first()
+        if user is None:
+            return None
+        if not verify_password(password, user.password_hash):
+            return None
+        return create_access_token(str(user.id))
 
-
-def authenticate_and_issue_token(db: Session, email: str, password: str) -> tuple[str, User]:
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.hashed_password):
-        raise ValueError("Invalid credentials")
-
-    token = create_access_token(
-        subject=user.email,
-        role=user.role.value,
-        organization_id=user.organization_id,
-        user_id=user.id,
-    )
-    return token, user
+    def get_user_from_token(self, token: str) -> User | None:
+        try:
+            user_id = int(decode_access_token(token))
+        except (ValueError, TypeError):
+            return None
+        return self.db.get(User, user_id)

@@ -1,21 +1,31 @@
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user
 from app.db.session import get_db
-from app.routers.deps import get_current_user
-from app.models.user import User
-from app.schemas.chat import ChatQueryRequest, ChatQueryResponse
-from app.services.chat_service import answer_query
+from app.models import User
+from app.schemas.chat import ChatMessageResponse, ChatQueryRequest, ChatQueryResponse
+from app.services.chat_service import ChatService
 
-router = APIRouter(prefix="/chat")
+router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 @router.post("/query", response_model=ChatQueryResponse)
-def query_chat(
+def query(
     payload: ChatQueryRequest,
-    db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ) -> ChatQueryResponse:
-    return answer_query(db=db, user=current_user, query=payload.query, top_k=payload.top_k)
+    service = ChatService(db)
+    session, answer, citations = service.query(user, payload.query, payload.session_id)
+    return ChatQueryResponse(session_id=session.id, answer=answer, citations=citations)
+
+
+@router.get("/history", response_model=list[ChatMessageResponse])
+def history(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ChatMessageResponse]:
+    service = ChatService(db)
+    messages = service.get_history(user.id)
+    return [ChatMessageResponse.model_validate(message) for message in messages]

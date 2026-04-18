@@ -1,95 +1,81 @@
 # Calisto AI
 
-Calisto AI is a production-style, enterprise-inspired RAG (Retrieval-Augmented Generation) knowledge platform scaffolded as a monorepo. This MVP foundation is designed for rapid iteration while signaling strong software engineering fundamentals for portfolio and recruiter review.
+Calisto AI is a production-style monorepo for an enterprise Retrieval-Augmented Generation (RAG) knowledge platform.
 
-## Overview
+## Monorepo Structure
 
-Calisto AI aims to provide secure, citation-based Q&A over internal knowledge, with future-ready multi-tenant architecture and clear operational boundaries between API, UI, data, and search layers.
+```text
+/backend   FastAPI API, RAG services, JWT auth, RBAC, tests
+/frontend  React + Vite + Tailwind SaaS UI
+/docs      Architecture and engineering guides
+```
 
-## Core features (MVP foundation)
+## Features (MVP)
 
-- FastAPI backend with modular architecture (`routers`, `services`, `schemas`, `models`)
-- React + Vite + Tailwind frontend with authenticated app shell layout
-- PostgreSQL integration via SQLAlchemy
-- FAISS-ready service layer placeholder for vector indexing and retrieval
-- JWT + RBAC auth scaffolding for enterprise access control patterns
-- Dockerized local development and service orchestration
-- CI workflow with backend and frontend quality gates
-- Engineering standards: Ruff, Pytest, ESLint, Prettier
+- FastAPI backend with JWT authentication and RBAC (`Admin`, `Member`, `Viewer`)
+- Multi-tenant-ready domain models (organizations, users, documents, chunks, chat sessions/messages)
+- Document ingestion pipeline with chunking and embedding placeholders
+- Retrieval + citation-aware answer composition
+- React frontend with enterprise SaaS layout and core pages (Login, Dashboard, Documents, Chat, Settings)
+- PostgreSQL-ready deployment with Docker Compose
+- Local FAISS-style vector retrieval abstraction for MVP, designed for future `pgvector` swap
+- Structured logging, health checks, and lightweight metrics
+- CI workflow for backend lint/tests and frontend build validation
 
-## Architecture summary
-
-- **Frontend (`frontend/`)**: React SPA for dashboard, documents, chat, and auth.
-- **Backend (`backend/`)**: FastAPI API for health, auth, documents, and chat domains.
-- **Database (`postgres`)**: stores tenants, users, documents, metadata, and audit-ready entities.
-- **Vector layer (FAISS placeholder)**: planned for semantic retrieval in the chat workflow.
-- **Infrastructure**: Docker Compose for local runtime, Makefile for standard task execution, GitHub Actions for CI.
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/PORTS.md`](docs/PORTS.md) for details.
-
-## Local setup
+## Quick Start
 
 ### Prerequisites
 
-- Docker + Docker Compose
 - Python 3.11+
 - Node.js 20+
-- Make
+- Docker + Docker Compose (optional, recommended)
 
-### Bootstrap
+### Local Development
 
 ```bash
 make bootstrap
+make run-backend
+make run-frontend
 ```
 
-### Run services
+Backend defaults to `http://localhost:8000`, frontend to `http://localhost:5173`.
+
+### Docker Compose
 
 ```bash
-# API (http://localhost:8000)
-make run-backend
-
-# Web app (http://localhost:5173)
-make run-frontend
-
-# Optional: full local stack with DB
-make up
+docker compose up --build
 ```
 
-### Quality checks
+## Backend Endpoints
+
+- `GET /health`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/documents/upload`
+- `GET /api/documents`
+- `GET /api/documents/{id}`
+- `POST /api/chat/query`
+- `GET /api/chat/history`
+
+## Testing and Linting
 
 ```bash
 make lint
 make test
 ```
 
-## Repository layout
+## Architecture Overview
 
-```text
-calisto-ai/
-  backend/
-  frontend/
-  docs/
-  README.md
-  LICENSE
-  CONTRIBUTING.md
-  .gitignore
-  .editorconfig
-  Makefile
-  docker-compose.yml
-```
+See:
 
-## Roadmap (Phase 2+)
+- `/docs/ARCHITECTURE.md`
+- `/docs/PORTS.md`
+- `/docs/STYLEGUIDE.md`
 
-1. Implement tenant-aware persistence models and Alembic migrations.
-2. Add secure upload pipeline + chunking/embedding jobs.
-3. Implement FAISS index lifecycle and retrieval ranking.
-4. Wire LLM provider integration with citation grounding.
-5. Add JWT refresh flow, role enforcement middleware, and audit events.
-6. Build document processing observability and production deployment manifests.
+## Roadmap
 
-## Why this project stands out
-
-- Enterprise patterns from day one (modular boundaries, quality checks, CI/CD)
-- Security-first architecture intent (JWT, RBAC, multi-tenant framing)
-- Practical AI product direction (document ingestion + citation QA)
-- Professional repository hygiene recruiters expect
+- Replace in-memory vector implementation with persistent FAISS index service
+- Add pgvector provider implementation behind vector store interface
+- Add SSO/SCIM integrations for enterprise identity workflows
+- Add audit logs, tracing, and richer metrics dashboards
+- Add document parsing for PDF/DOCX inputs and async ingestion jobs

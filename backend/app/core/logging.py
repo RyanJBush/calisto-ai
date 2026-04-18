@@ -1,26 +1,38 @@
 import json
 import logging
-from datetime import UTC, datetime
+import time
+
+from fastapi import Request
 
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
-            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
+            "timestamp": int(time.time()),
         }
-        for key in ("path", "method", "user_id", "organization_id", "document_id"):
-            if hasattr(record, key):
-                payload[key] = getattr(record, key)
         return json.dumps(payload)
 
 
 def configure_logging() -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(logging.INFO)
 
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-    root_logger.handlers = [handler]
+
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    logging.getLogger("calisto.request").info(
+        "%s %s status=%s duration_ms=%.2f",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response

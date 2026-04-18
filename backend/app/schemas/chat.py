@@ -1,21 +1,32 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class ChatQueryRequest(BaseModel):
-    query: str = Field(min_length=1)
-    top_k: int = Field(default=3, ge=1, le=10)
+    query: str
+    session_id: int | None = None
 
 
-class RetrievedChunk(BaseModel):
-    chunk_id: int
+class Citation(BaseModel):
     document_id: int
-    chunk_index: int
-    score: float
-    citation_ref: str
-    excerpt: str
+    document_title: str
+    chunk_id: int
+    snippet: str
 
 
 class ChatQueryResponse(BaseModel):
+    session_id: int
     answer: str
-    citations: list[str]
-    retrieved_chunks: list[RetrievedChunk]
+    citations: list[Citation]
+
+
+class ChatMessageResponse(BaseModel):
+    id: int
+    session_id: int
+    role: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

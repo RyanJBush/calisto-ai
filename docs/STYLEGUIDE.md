@@ -1,30 +1,19 @@
-# Engineering Style Guide
+# Style Guide
 
-## General principles
+## Backend (Python)
 
-- Prioritize readability and maintainability over cleverness.
-- Keep HTTP handlers thin and move logic into services.
-- Prefer explicit typing and clear naming.
-- Use small, composable modules.
+- Follow PEP 8 and Ruff defaults
+- Prefer explicit typing in service and schema layers
+- Keep routers thin; business logic belongs in services
 
-## Backend conventions
+## Frontend (React)
 
-- Python 3.11+
-- Lint with Ruff
-- Test with Pytest
-- Group by domain (`routers`, `services`, `schemas`, `models`)
-- Use dependency injection for database/session access
+- Component-first structure with pages + shared UI components
+- Use consistent utility class ordering with Tailwind
+- Keep API integrations in `src/services` and avoid direct fetch logic in page components
 
-## Frontend conventions
+## General
 
-- React function components
-- Route-centric pages under `src/pages`
-- Shared layout components under `src/components/layout`
-- Tailwind utility-first styling
-- Lint with ESLint and format with Prettier
-
-## Git and PR hygiene
-
-- Small focused commits
-- Include test/lint output in PR description
-- Link architecture changes in `docs/ARCHITECTURE.md`
+- Use professional, descriptive names
+- Keep comments minimal and only where they add value
+- Maintain clear separation of concerns across modules

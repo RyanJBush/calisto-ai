@@ -1,27 +1,19 @@
-import enum
-
-from sqlalchemy import Enum, ForeignKey, String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
-from app.models.base import TimestampMixin
+from app.db.base import Base
 
 
-class Role(str, enum.Enum):
-    admin = "admin"
-    member = "member"
-    viewer = "viewer"
-
-
-class User(TimestampMixin, Base):
+class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    full_name: Mapped[str] = mapped_column(String(255))
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.viewer, nullable=False)
-    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    full_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
     organization = relationship("Organization", back_populates="users")
-    documents = relationship("Document", back_populates="uploaded_by")
+    chat_sessions = relationship("ChatSession", back_populates="user")
+    documents = relationship("Document", back_populates="uploader")

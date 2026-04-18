@@ -1,55 +1,55 @@
-import logging
-
 from sqlalchemy.orm import Session
 
-from app.models.chat import ChatMessage, ChatSession
-from app.models.user import User
-from app.schemas.chat import ChatQueryResponse, RetrievedChunk
-from app.services.retrieval_service import retrieve_top_chunks
-
-logger = logging.getLogger(__name__)
+from app.models import ChatMessage, ChatSession, User
+from app.schemas.chat import Citation
+from app.services.answer_service import AnswerService
+from app.services.retrieval_service import RetrievalService
 
 
-def answer_query(db: Session, user: User, query: str, top_k: int) -> ChatQueryResponse:
-    retrieved = retrieve_top_chunks(db, organization_id=user.organization_id, query=query, top_k=top_k)
+class ChatService:
+    def __init__(self, db: Session) -> None:
+        self.db = db
+        self.retrieval_service = RetrievalService(db)
+        self.answer_service = AnswerService()
 
-    session = ChatSession(organization_id=user.organization_id, user_id=user.id, title=query[:60])
-    db.add(session)
-    db.flush()
+    def _get_or_create_session(self, user: User, session_id: int | None) -> ChatSession:
+        if session_id is not None:
+            existing = self.db.query(ChatSession).filter_by(id=session_id, user_id=user.id).first()
+            if existing:
+                return existing
+        session = ChatSession(user_id=user.id, title="Knowledge Query")
+        self.db.add(session)
+        self.db.flush()
+        return session
 
-    db.add(ChatMessage(session_id=session.id, role="user", content=query))
+    def query(self, user: User, query_text: str, session_id: int | None) -> tuple[ChatSession, str, list[Citation]]:
+        session = self._get_or_create_session(user, session_id)
+        retrieved = self.retrieval_service.retrieve(query_text)
 
-    if retrieved:
-        summary = "\n".join(f"- {result.chunk.content[:120]}" for result in retrieved)
-        answer_text = f"Based on retrieved knowledge:\n{summary}"
-    else:
-        answer_text = "I could not find relevant knowledge yet. Please upload documents first."
+        citations: list[Citation] = []
+        for chunk, _score in retrieved:
+            citations.append(
+                Citation(
+                    document_id=chunk.document_id,
+                    document_title=chunk.document.title,
+                    chunk_id=chunk.id,
+                    snippet=chunk.content[:180],
+                )
+            )
 
-    db.add(ChatMessage(session_id=session.id, role="assistant", content=answer_text))
-    db.commit()
+        answer = self.answer_service.generate_answer(query_text, citations)
 
-    response_chunks = [
-        RetrievedChunk(
-            chunk_id=item.chunk.id,
-            document_id=item.chunk.document_id,
-            chunk_index=item.chunk.chunk_index,
-            score=round(item.score, 4),
-            citation_ref=item.chunk.citation_ref,
-            excerpt=item.chunk.content[:160],
+        self.db.add(ChatMessage(session_id=session.id, role="user", content=query_text))
+        self.db.add(ChatMessage(session_id=session.id, role="assistant", content=answer))
+        self.db.commit()
+        self.db.refresh(session)
+        return session, answer, citations
+
+    def get_history(self, user_id: int) -> list[ChatMessage]:
+        return (
+            self.db.query(ChatMessage)
+            .join(ChatSession, ChatMessage.session_id == ChatSession.id)
+            .filter(ChatSession.user_id == user_id)
+            .order_by(ChatMessage.created_at.asc())
+            .all()
         )
-        for item in retrieved
-    ]
-
-    logger.info(
-        "Chat query processed",
-        extra={
-            "user_id": user.id,
-            "organization_id": user.organization_id,
-        },
-    )
-
-    return ChatQueryResponse(
-        answer=answer_text,
-        citations=[item.citation_ref for item in response_chunks],
-        retrieved_chunks=response_chunks,
-    )

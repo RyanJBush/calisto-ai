@@ -1,31 +1,14 @@
-# Contributing to Calisto AI
+# Contributing
 
-Thank you for your interest in contributing.
+## Development Setup
 
-## Development workflow
+1. Run `make bootstrap`
+2. Start services with `make run-backend` and `make run-frontend`
+3. Validate with `make lint` and `make test`
 
-1. Fork and clone the repository.
-2. Create a feature branch from `main`.
-3. Run `make bootstrap`.
-4. Run quality checks with `make lint && make test`.
-5. Open a pull request with context, screenshots (if UI changes), and test output.
+## Pull Request Expectations
 
-## Commit conventions
-
-Use clear, imperative commit messages:
-
-- `feat(backend): add tenant-aware document ingestion`
-- `fix(frontend): handle expired sessions`
-- `docs: update architecture decision record`
-
-## Code quality expectations
-
-- Backend: type hints, pytest coverage for core behavior, ruff-clean.
-- Frontend: linted with ESLint, formatted with Prettier.
-- Keep business logic in service modules and keep route handlers thin.
-
-## Security notes
-
-- Never commit real credentials.
-- Treat uploaded customer documents as sensitive data.
-- Follow least privilege for service roles and API tokens.
+- Keep changes focused and minimal
+- Add/adjust tests for behavior changes
+- Preserve API and UI consistency
+- Ensure CI passes

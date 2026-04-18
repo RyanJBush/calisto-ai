@@ -1,26 +1,20 @@
-SHELL := /bin/bash
-
-.PHONY: bootstrap lint test run-backend run-frontend up down
+.PHONY: bootstrap lint test run-backend run-frontend
 
 bootstrap:
-	python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -r backend/requirements-dev.txt
-	cd frontend && npm install
+	python -m pip install --upgrade pip
+	pip install -r backend/requirements.txt
+	npm --prefix frontend install
 
 lint:
-	source .venv/bin/activate && cd backend && ruff check .
-	cd frontend && npm run lint && npm run format:check
+	ruff check backend
+	npm --prefix frontend run lint
 
 test:
-	source .venv/bin/activate && cd backend && pytest -q
+	cd backend && pytest tests
+	npm --prefix frontend run build
 
 run-backend:
-	source .venv/bin/activate && cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 run-frontend:
-	cd frontend && npm run dev -- --host 0.0.0.0 --port 5173
-
-up:
-	docker compose up --build
-
-down:
-	docker compose down -v
+	npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173

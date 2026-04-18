@@ -1,37 +1,28 @@
-# Calisto AI Architecture (MVP Foundation)
+# Architecture
 
-## High-level design
+Calisto AI is organized as a monorepo with explicit separation between backend API services and frontend application delivery.
 
-Calisto AI is organized as a monorepo with a clear separation of concerns:
+## High-Level Components
 
-- `backend/`: FastAPI API and domain logic
-- `frontend/`: React SPA
-- `docs/`: architecture and standards documentation
+- **Frontend (`/frontend`)**: React + Vite SPA for user workflows (auth, dashboard, documents, chat, settings)
+- **Backend (`/backend`)**: FastAPI application with modular clean architecture
+- **Database (PostgreSQL)**: Core relational data for users, orgs, docs, chunks, chat sessions/messages
+- **Vector Retrieval Layer**: `VectorStore` interface with FAISS-style MVP implementation and provider-swappable design
 
-## Backend layers
+## Backend Layering
 
-- **Routers**: HTTP boundary and request/response wiring.
-- **Schemas**: Pydantic contracts for API validation and serialization.
-- **Services**: Business logic (auth, document ingestion orchestration, chat answer synthesis).
-- **Models**: SQLAlchemy entities for persistence.
-- **DB**: SQLAlchemy session setup and dependency injection.
+- `routers/` HTTP route handlers
+- `schemas/` request/response contracts
+- `services/` domain workflows (ingestion, embedding, retrieval, answering)
+- `models/` SQLAlchemy ORM entities
+- `db/` engine/session/bootstrap and seed data
+- `core/` auth, logging, metrics, shared dependencies
 
-## Frontend layers
+## RAG Flow (MVP)
 
-- **Layout shell**: persistent sidebar + main content area.
-- **Route pages**: dashboard, documents, chat, and login.
-- **Styling**: Tailwind utility classes with centralized style entrypoint.
-
-## Data flow (future state)
-
-1. User authenticates via JWT.
-2. Tenant-scoped documents are uploaded and processed.
-3. Document chunks are embedded and indexed in FAISS.
-4. Chat requests trigger retrieval + LLM generation.
-5. Answers return with source citations for grounding.
-
-## Multi-tenant strategy (planned)
-
-- Tenant ID propagated across auth, persistence, indexing, and querying.
-- Tenant isolation enforced at query layer and service layer.
-- Role-based controls define access to ingestion, admin config, and chat.
+1. User uploads text document
+2. Ingestion service chunks the text
+3. Embedding service generates deterministic placeholder vectors
+4. Vector store indexes chunk vectors for retrieval
+5. Chat query embeds user question and retrieves top chunks
+6. Answer service returns synthesized answer + citations

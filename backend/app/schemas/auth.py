@@ -6,15 +6,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
+class AuthTokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: EmailStr
+    full_name: str
     role: str
     organization_id: int
 
-
-class UserContext(BaseModel):
-    user_id: int
-    email: str
-    role: str
-    organization_id: int
+    class Config:
+        from_attributes = True

@@ -1,29 +1,17 @@
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.core.logging import configure_logging
-from app.db.session import Base, SessionLocal, engine
-import app.models  # noqa: F401
+from app.config import get_settings
+from app.core.logging import configure_logging, log_requests
+from app.core.metrics import metrics_store
+from app.db.seed import seed_demo_data
+from app.db.session import SessionLocal, init_db
 from app.routers import auth, chat, documents, health
-from app.services.auth_service import ensure_demo_seed_data
 
+settings = get_settings()
+configure_logging()
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    configure_logging()
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        ensure_demo_seed_data(db)
-    finally:
-        db.close()
-    yield
-
-
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(title=settings.app_name)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +21,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health.router, tags=["health"])
-app.include_router(auth.router, prefix=settings.api_prefix, tags=["auth"])
-app.include_router(documents.router, prefix=settings.api_prefix, tags=["documents"])
-app.include_router(chat.router, prefix=settings.api_prefix, tags=["chat"])
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    metrics_store.increment()
+    return await log_requests(request, call_next)
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+    db = SessionLocal()
+    try:
+        seed_demo_data(db)
+    finally:
+        db.close()
+
+
+app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(documents.router)
+app.include_router(chat.router)

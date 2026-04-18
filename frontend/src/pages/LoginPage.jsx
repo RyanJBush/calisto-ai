@@ -1,41 +1,51 @@
-import { Link } from 'react-router-dom'
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-function LoginPage() {
+import { login } from "../services/api";
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("admin@calisto.ai");
+  const [password, setPassword] = useState("password123");
+  const [error, setError] = useState("");
+
+  async function onSubmit(event) {
+    event.preventDefault();
+    try {
+      await login(email, password);
+      navigate("/dashboard");
+    } catch {
+      setError("Login failed. Verify credentials.");
+    }
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
-      <section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Sign in to Calisto AI</h1>
-        <p className="mt-2 text-sm text-slate-500">Enterprise knowledge platform</p>
-        <form className="mt-6 space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Email</span>
-            <input
-              type="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-indigo-500 focus:ring"
-              placeholder="you@company.com"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">Password</span>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-indigo-500 focus:ring"
-              placeholder="••••••••"
-            />
-          </label>
-          <button
-            type="button"
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500"
-          >
-            Sign in
-          </button>
-        </form>
-        <Link to="/" className="mt-4 inline-block text-sm text-indigo-600 hover:text-indigo-500">
-          Continue to demo shell
-        </Link>
-      </section>
-    </main>
-  )
-}
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+      <form onSubmit={onSubmit} className="w-full max-w-md rounded-lg bg-white p-6 shadow">
+        <h1 className="mb-2 text-2xl font-semibold text-slate-900">Calisto AI</h1>
+        <p className="mb-6 text-sm text-slate-600">Sign in to access your enterprise knowledge workspace.</p>
 
-export default LoginPage
+        <label className="mb-2 block text-sm font-medium text-slate-700">Email</label>
+        <input
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          className="mb-4 w-full rounded-md border border-slate-300 px-3 py-2"
+        />
+
+        <label className="mb-2 block text-sm font-medium text-slate-700">Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          className="mb-4 w-full rounded-md border border-slate-300 px-3 py-2"
+        />
+
+        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+        <button type="submit" className="w-full rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">
+          Sign In
+        </button>
+      </form>
+    </div>
+  );
+}
