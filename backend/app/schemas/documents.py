@@ -22,6 +22,8 @@ class DocumentResponse(BaseModel):
     id: int
     title: str
     source_name: str
+    version: int
+    parent_document_id: int | None = None
     created_at: datetime
     ingestion_status: str
     ingestion_error: str | None = None

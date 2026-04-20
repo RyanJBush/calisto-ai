@@ -22,7 +22,10 @@ def upload_document(
     user: User = Depends(require_roles("admin", "member")),
 ) -> DocumentResponse:
     service = DocumentService(db)
-    document = service.upload_document(payload, user)
+    try:
+        document = service.upload_document(payload, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return DocumentResponse.model_validate(document)
 
 

@@ -12,6 +12,7 @@ class ChatQueryRequest(BaseModel):
     query: str
     session_id: int | None = None
     filters: QueryFilters | None = None
+    grounded_mode: bool = True
 
 
 class Citation(BaseModel):
@@ -29,6 +30,10 @@ class Citation(BaseModel):
 class ChatQueryResponse(BaseModel):
     session_id: int
     answer: str
+    rewritten_query: str
+    confidence_score: float
+    citation_coverage: float
+    insufficient_evidence: bool
     citations: list[Citation]
 
 

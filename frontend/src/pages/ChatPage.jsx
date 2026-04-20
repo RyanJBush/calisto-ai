@@ -8,6 +8,10 @@ export default function ChatPage() {
   const [citations, setCitations] = useState([]);
   const [selectedCitation, setSelectedCitation] = useState(null);
   const [history, setHistory] = useState([]);
+  const [confidenceScore, setConfidenceScore] = useState(null);
+  const [citationCoverage, setCitationCoverage] = useState(null);
+  const [insufficientEvidence, setInsufficientEvidence] = useState(false);
+  const [rewrittenQuery, setRewrittenQuery] = useState("");
 
   async function loadHistory() {
     const data = await fetchHistory();
@@ -24,6 +28,10 @@ export default function ChatPage() {
     setAnswer(response.answer);
     setCitations(response.citations);
     setSelectedCitation(response.citations[0] || null);
+    setConfidenceScore(response.confidence_score);
+    setCitationCoverage(response.citation_coverage);
+    setInsufficientEvidence(response.insufficient_evidence);
+    setRewrittenQuery(response.rewritten_query);
     await loadHistory();
   }
 
@@ -72,6 +80,12 @@ export default function ChatPage() {
           <div className="rounded-lg border border-slate-200 bg-white p-5">
             <h3 className="text-sm font-semibold uppercase text-slate-500">Answer</h3>
             <p className="mt-2 text-slate-800">{answer}</p>
+            <div className="mt-3 space-y-1 text-xs text-slate-500">
+              <p>Rewritten Query: {rewrittenQuery}</p>
+              <p>Confidence: {((confidenceScore || 0) * 100).toFixed(0)}%</p>
+              <p>Citation Coverage: {((citationCoverage || 0) * 100).toFixed(0)}%</p>
+              {insufficientEvidence && <p className="font-medium text-amber-600">Insufficient evidence fallback active.</p>}
+            </div>
             <h4 className="mt-4 text-sm font-semibold uppercase text-slate-500">Citations</h4>
             <ul className="mt-2 space-y-2">
               {citations.map((citation) => (

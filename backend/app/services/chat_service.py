@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.models import ChatMessage, ChatSession, User
 from app.schemas.chat import Citation, QueryFilters
 from app.services.answer_service import AnswerService
+from app.services.query_rewrite_service import QueryRewriteService
 from app.services.retrieval_service import RetrievalFilters, RetrievalService
 from app.services.text_utils import tokenize
 
@@ -14,6 +15,7 @@ class ChatService:
         self.db = db
         self.retrieval_service = RetrievalService(db)
         self.answer_service = AnswerService()
+        self.query_rewrite_service = QueryRewriteService()
 
     def _get_or_create_session(self, user: User, session_id: int | None) -> ChatSession:
         if session_id is not None:
@@ -31,14 +33,16 @@ class ChatService:
         query_text: str,
         session_id: int | None,
         filters: QueryFilters | None = None,
-    ) -> tuple[ChatSession, str, list[Citation]]:
+        grounded_mode: bool = True,
+    ) -> tuple[ChatSession, str, list[Citation], bool, float, float, str]:
         session = self._get_or_create_session(user, session_id)
+        rewritten_query = self.query_rewrite_service.rewrite(query_text)
         retrieval_filters = RetrievalFilters(
             source_name=filters.source_name if filters else None,
             document_ids=filters.document_ids if filters else None,
         )
         retrieved = self.retrieval_service.retrieve(
-            query_text,
+            rewritten_query,
             organization_id=user.organization_id,
             filters=retrieval_filters,
         )
@@ -46,7 +50,7 @@ class ChatService:
         citations: list[Citation] = []
         for chunk, score in retrieved:
             preview_text, highlight_start, highlight_end, highlight_ranges = self._build_source_preview(
-                chunk.content, query_text
+                chunk.content, rewritten_query
             )
             citations.append(
                 Citation(
@@ -62,13 +66,23 @@ class ChatService:
                 )
             )
 
-        answer = self.answer_service.generate_answer(query_text, citations)
+        answer_result = self.answer_service.generate_answer(rewritten_query, citations, grounded_mode=grounded_mode)
+        citation_coverage = self._compute_citation_coverage(rewritten_query, citations)
+        confidence_score = self._compute_confidence(citations, citation_coverage, answer_result.insufficient_evidence)
 
         self.db.add(ChatMessage(session_id=session.id, role="user", content=query_text))
-        self.db.add(ChatMessage(session_id=session.id, role="assistant", content=answer))
+        self.db.add(ChatMessage(session_id=session.id, role="assistant", content=answer_result.text))
         self.db.commit()
         self.db.refresh(session)
-        return session, answer, citations
+        return (
+            session,
+            answer_result.text,
+            citations,
+            answer_result.insufficient_evidence,
+            confidence_score,
+            citation_coverage,
+            rewritten_query,
+        )
 
     def get_history(self, user_id: int) -> list[ChatMessage]:
         return (
@@ -122,3 +136,27 @@ class ChatService:
 
         highlight_start, highlight_end = preview_ranges[0]
         return preview, highlight_start, highlight_end, preview_ranges
+
+    def _compute_citation_coverage(self, query: str, citations: list[Citation]) -> float:
+        query_terms = set(tokenize(query))
+        if not query_terms or not citations:
+            return 0.0
+
+        covered_terms: set[str] = set()
+        for citation in citations:
+            citation_terms = set(tokenize(citation.source_preview))
+            covered_terms |= query_terms & citation_terms
+
+        return round(min(1.0, len(covered_terms) / max(1, len(query_terms))), 4)
+
+    def _compute_confidence(
+        self,
+        citations: list[Citation],
+        citation_coverage: float,
+        insufficient_evidence: bool,
+    ) -> float:
+        if insufficient_evidence or not citations:
+            return 0.0
+
+        average_retrieval = sum(citation.retrieval_score for citation in citations) / max(1, len(citations))
+        return round(min(1.0, (average_retrieval * 0.7) + (citation_coverage * 0.3)), 4)

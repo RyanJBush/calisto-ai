@@ -41,6 +41,13 @@ class AdminService:
             .scalar()
             or 0
         )
+        ingestions_queued = (
+            self.db.query(func.count(IngestionRun.id))
+            .join(Document, IngestionRun.document_id == Document.id)
+            .filter(Document.organization_id == organization_id, IngestionRun.status == "queued")
+            .scalar()
+            or 0
+        )
         ingestions_completed = (
             self.db.query(func.count(IngestionRun.id))
             .join(Document, IngestionRun.document_id == Document.id)
@@ -61,6 +68,7 @@ class AdminService:
             "chat_sessions_total": int(total_chat_sessions),
             "queries_total": int(total_queries),
             "ingestions_processing": int(ingestions_processing),
+            "ingestions_queued": int(ingestions_queued),
             "ingestions_completed": int(ingestions_completed),
             "ingestions_failed": int(ingestions_failed),
         }

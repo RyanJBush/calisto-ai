@@ -55,6 +55,7 @@ export default function DashboardPage() {
           <div className="mt-4 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
             <p>Chunks Indexed: {summary.chunks_total}</p>
             <p>Ingestions Completed: {summary.ingestions_completed}</p>
+            <p>Ingestions Queued: {summary.ingestions_queued}</p>
             <p>Ingestions Processing: {summary.ingestions_processing}</p>
             <p>Ingestions Failed: {summary.ingestions_failed}</p>
           </div>
