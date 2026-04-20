@@ -89,8 +89,6 @@ class RetrievalService:
         query_terms = self._tokens(query)
         if not query_terms:
             return {}
-        if len(query_terms) == 0:
-            return {}
 
         query_counter = Counter(query_terms)
         query_term_set = set(query_terms)

@@ -60,7 +60,9 @@ export default function ChatPage() {
                   >
                     <p className="font-medium">{citation.document_title}</p>
                     <p>{citation.snippet}</p>
-                    <p className="mt-1 text-xs text-slate-500">Score: {citation.retrieval_score}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Relevance: {(citation.retrieval_score * 100).toFixed(0)}%
+                    </p>
                   </button>
                 </li>
               ))}

@@ -6,6 +6,8 @@ from app.services.answer_service import AnswerService
 from app.services.retrieval_service import RetrievalService
 from app.services.text_utils import tokenize
 
+DEFAULT_PREVIEW_HIGHLIGHT_RATIO = 0.25
+
 
 class ChatService:
     def __init__(self, db: Session) -> None:
@@ -75,7 +77,7 @@ class ChatService:
 
         if best_match_start is None:
             preview = content[:window]
-            highlight_end = min(len(preview), max(1, len(preview) // 4))
+            highlight_end = min(len(preview), max(1, int(len(preview) * DEFAULT_PREVIEW_HIGHLIGHT_RATIO)))
             return preview, 0, highlight_end
 
         preview_start = max(0, best_match_start - (window // 3))
