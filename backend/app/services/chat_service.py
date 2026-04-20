@@ -1,9 +1,13 @@
+import re
+
 from sqlalchemy.orm import Session
 
 from app.models import ChatMessage, ChatSession, User
 from app.schemas.chat import Citation
 from app.services.answer_service import AnswerService
 from app.services.retrieval_service import RetrievalService
+
+TOKEN_PATTERN = re.compile(r"[a-z0-9]{2,}")
 
 
 class ChatService:
@@ -24,16 +28,21 @@ class ChatService:
 
     def query(self, user: User, query_text: str, session_id: int | None) -> tuple[ChatSession, str, list[Citation]]:
         session = self._get_or_create_session(user, session_id)
-        retrieved = self.retrieval_service.retrieve(query_text)
+        retrieved = self.retrieval_service.retrieve(query_text, organization_id=user.organization_id)
 
         citations: list[Citation] = []
-        for chunk, _score in retrieved:
+        for chunk, score in retrieved:
+            preview_text, highlight_start, highlight_end = self._build_source_preview(chunk.content, query_text)
             citations.append(
                 Citation(
                     document_id=chunk.document_id,
                     document_title=chunk.document.title,
                     chunk_id=chunk.id,
-                    snippet=chunk.content[:180],
+                    snippet=preview_text,
+                    source_preview=preview_text,
+                    highlight_start=highlight_start,
+                    highlight_end=highlight_end,
+                    retrieval_score=round(score.rerank_score or score.score, 4),
                 )
             )
 
@@ -53,3 +62,28 @@ class ChatService:
             .order_by(ChatMessage.created_at.asc())
             .all()
         )
+
+    def _build_source_preview(self, content: str, query: str, window: int = 220) -> tuple[str, int, int]:
+        terms = TOKEN_PATTERN.findall(query.lower())
+        content_lower = content.lower()
+
+        best_match_start = None
+        best_match_len = 0
+        for term in terms:
+            index = content_lower.find(term)
+            if index >= 0:
+                if best_match_start is None or index < best_match_start:
+                    best_match_start = index
+                    best_match_len = len(term)
+
+        if best_match_start is None:
+            preview = content[:window]
+            highlight_end = min(len(preview), max(1, len(preview) // 4))
+            return preview, 0, highlight_end
+
+        preview_start = max(0, best_match_start - (window // 3))
+        preview_end = min(len(content), preview_start + window)
+        preview = content[preview_start:preview_end]
+        highlight_start = max(0, best_match_start - preview_start)
+        highlight_end = min(len(preview), highlight_start + best_match_len)
+        return preview, highlight_start, max(highlight_start + 1, highlight_end)

@@ -52,6 +52,8 @@ export default function DocumentsPage() {
             <li key={doc.id} className="rounded-md border border-slate-200 p-3">
               <p className="font-medium text-slate-800">{doc.title}</p>
               <p className="text-xs text-slate-500">Source: {doc.source_name}</p>
+              <p className="text-xs text-slate-500">Ingestion: {doc.ingestion_status}</p>
+              {doc.ingestion_error && <p className="text-xs text-rose-600">Error: {doc.ingestion_error}</p>}
             </li>
           ))}
           {documents.length === 0 && <li className="text-sm text-slate-500">No documents uploaded yet.</li>}

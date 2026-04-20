@@ -13,6 +13,10 @@ class Citation(BaseModel):
     document_title: str
     chunk_id: int
     snippet: str
+    source_preview: str
+    highlight_start: int
+    highlight_end: int
+    retrieval_score: float
 
 
 class ChatQueryResponse(BaseModel):

@@ -6,7 +6,7 @@ from app.core.logging import configure_logging, log_requests
 from app.core.metrics import metrics_store
 from app.db.seed import seed_demo_data
 from app.db.session import SessionLocal, init_db
-from app.routers import auth, chat, documents, health
+from app.routers import admin, auth, chat, documents, health
 
 settings = get_settings()
 configure_logging()
@@ -42,3 +42,4 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(chat.router)
+app.include_router(admin.router)

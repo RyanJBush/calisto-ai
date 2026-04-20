@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
-from app.models import Chunk, Document, User
+from app.models import Chunk, Document, IngestionRun, User
 from app.schemas.documents import DocumentUploadRequest
 from app.services.embedding_service import EmbeddingService
 from app.services.ingestion_service import IngestionService
@@ -25,16 +27,31 @@ class DocumentService:
         self.db.add(document)
         self.db.flush()
 
-        chunks = self.ingestion_service.chunk_document(document)
-        for chunk in chunks:
-            self.db.add(chunk)
+        ingestion_run = IngestionRun(document_id=document.id, status="processing", attempts=1)
+        self.db.add(ingestion_run)
         self.db.flush()
 
-        for chunk in chunks:
-            vector = self.embedding_service.embed_text(chunk.content)
-            vector_store.add(chunk.id, vector)
+        try:
+            chunks = self.ingestion_service.chunk_document(document)
+            for chunk in chunks:
+                self.db.add(chunk)
+            self.db.flush()
 
-        self.db.commit()
+            for chunk in chunks:
+                vector = self.embedding_service.embed_text(chunk.content)
+                vector_store.add(chunk.id, vector)
+
+            ingestion_run.status = "completed"
+            ingestion_run.completed_at = datetime.now(timezone.utc)
+            ingestion_run.error_message = None
+            self.db.commit()
+        except Exception as exc:
+            ingestion_run.status = "failed"
+            ingestion_run.error_message = str(exc)[:500]
+            ingestion_run.completed_at = datetime.now(timezone.utc)
+            self.db.commit()
+            raise
+
         self.db.refresh(document)
         return document
 
