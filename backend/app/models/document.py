@@ -38,3 +38,9 @@ class Document(Base):
         if not self.ingestion_runs:
             return None
         return self.ingestion_runs[-1].error_message
+
+    @property
+    def ingestion_attempts(self) -> int:
+        if not self.ingestion_runs:
+            return 0
+        return self.ingestion_runs[-1].attempts

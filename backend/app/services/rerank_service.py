@@ -9,6 +9,7 @@ class RetrievalCandidate:
     chunk: Chunk
     vector_score: float
     keyword_score: float
+    metadata_score: float
     blended_score: float
 
 
@@ -26,7 +27,12 @@ class RerankService:
 
             coverage = len(content_terms & query_term_set) / max(1, len(query_term_set))
             title_boost = len(title_terms & query_term_set) / max(1, len(query_term_set))
-            rerank_score = (candidate.blended_score * 0.55) + (coverage * 0.35) + (title_boost * 0.10)
+            rerank_score = (
+                (candidate.blended_score * 0.50)
+                + (coverage * 0.30)
+                + (title_boost * 0.10)
+                + (candidate.metadata_score * 0.10)
+            )
             ranked.append((rerank_score, candidate))
 
         ranked.sort(key=lambda item: item[0], reverse=True)
@@ -41,7 +47,12 @@ class RerankService:
         title_terms = set(self._tokens(candidate.chunk.document.title))
         coverage = len(content_terms & query_terms) / max(1, len(query_terms))
         title_boost = len(title_terms & query_terms) / max(1, len(query_terms))
-        return (candidate.blended_score * 0.55) + (coverage * 0.35) + (title_boost * 0.10)
+        return (
+            (candidate.blended_score * 0.50)
+            + (coverage * 0.30)
+            + (title_boost * 0.10)
+            + (candidate.metadata_score * 0.10)
+        )
 
     def _tokens(self, text: str) -> list[str]:
         return tokenize(text)

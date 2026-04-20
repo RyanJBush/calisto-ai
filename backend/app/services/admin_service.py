@@ -64,3 +64,32 @@ class AdminService:
             "ingestions_completed": int(ingestions_completed),
             "ingestions_failed": int(ingestions_failed),
         }
+
+    def get_top_documents_by_chunk_count(self, organization_id: int, limit: int = 5) -> list[dict[str, int | str]]:
+        rows = (
+            self.db.query(
+                Document.id.label("document_id"),
+                Document.title.label("title"),
+                func.count(Chunk.id).label("indexed_chunks"),
+            )
+            .join(Chunk, Chunk.document_id == Document.id)
+            .filter(Document.organization_id == organization_id)
+            .group_by(Document.id, Document.title)
+            .order_by(func.count(Chunk.id).desc(), Document.id.asc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {"document_id": int(row.document_id), "title": row.title, "indexed_chunks": int(row.indexed_chunks)}
+            for row in rows
+        ]
+
+    def get_ingestion_status_breakdown(self, organization_id: int) -> list[dict[str, int | str]]:
+        rows = (
+            self.db.query(IngestionRun.status.label("status"), func.count(IngestionRun.id).label("count"))
+            .join(Document, IngestionRun.document_id == Document.id)
+            .filter(Document.organization_id == organization_id)
+            .group_by(IngestionRun.status)
+            .all()
+        )
+        return [{"status": row.status, "count": int(row.count)} for row in rows]

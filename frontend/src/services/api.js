@@ -59,3 +59,18 @@ export async function fetchAdminAnalyticsSummary() {
   const { data } = await api.get("/api/admin/analytics/summary");
   return data;
 }
+
+export async function fetchAdminTopDocuments() {
+  const { data } = await api.get("/api/admin/analytics/top-documents");
+  return data;
+}
+
+export async function fetchAdminIngestionBreakdown() {
+  const { data } = await api.get("/api/admin/analytics/ingestion-breakdown");
+  return data;
+}
+
+export async function fetchDocumentIngestionRuns(documentId) {
+  const { data } = await api.get(`/api/documents/${documentId}/ingestion-runs`);
+  return data;
+}

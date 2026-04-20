@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Chunk, Document, IngestionRun, User
 from app.schemas.documents import DocumentUploadRequest
@@ -58,6 +58,7 @@ class DocumentService:
     def list_documents_for_org(self, organization_id: int) -> list[Document]:
         return (
             self.db.query(Document)
+            .options(joinedload(Document.ingestion_runs))
             .filter(Document.organization_id == organization_id)
             .order_by(Document.created_at.desc())
             .all()
@@ -66,8 +67,18 @@ class DocumentService:
     def get_document_for_org(self, document_id: int, organization_id: int) -> Document | None:
         return (
             self.db.query(Document)
+            .options(joinedload(Document.chunks), joinedload(Document.ingestion_runs))
             .filter(Document.id == document_id, Document.organization_id == organization_id)
             .first()
+        )
+
+    def get_ingestion_runs(self, document_id: int, organization_id: int) -> list[IngestionRun]:
+        return (
+            self.db.query(IngestionRun)
+            .join(Document, IngestionRun.document_id == Document.id)
+            .filter(Document.id == document_id, Document.organization_id == organization_id)
+            .order_by(IngestionRun.id.desc())
+            .all()
         )
 
     def get_chunk(self, chunk_id: int) -> Chunk | None:
