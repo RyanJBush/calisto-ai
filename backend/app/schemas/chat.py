@@ -3,9 +3,16 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class QueryFilters(BaseModel):
+    source_name: str | None = None
+    document_ids: list[int] | None = None
+
+
 class ChatQueryRequest(BaseModel):
     query: str
     session_id: int | None = None
+    filters: QueryFilters | None = None
+    grounded_mode: bool = True
 
 
 class Citation(BaseModel):
@@ -16,12 +23,17 @@ class Citation(BaseModel):
     source_preview: str
     highlight_start: int
     highlight_end: int
+    highlight_ranges: list[tuple[int, int]] = []
     retrieval_score: float
 
 
 class ChatQueryResponse(BaseModel):
     session_id: int
     answer: str
+    rewritten_query: str
+    confidence_score: float
+    citation_coverage: float
+    insufficient_evidence: bool
     citations: list[Citation]
 
 
