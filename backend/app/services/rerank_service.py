@@ -24,8 +24,8 @@ class RerankService:
             title_terms = set(self._tokens(candidate.chunk.document.title))
             query_term_set = set(query_terms)
 
-            coverage = len(content_terms & query_term_set) / len(query_term_set)
-            title_boost = len(title_terms & query_term_set) / len(query_term_set)
+            coverage = len(content_terms & query_term_set) / max(1, len(query_term_set))
+            title_boost = len(title_terms & query_term_set) / max(1, len(query_term_set))
             rerank_score = (candidate.blended_score * 0.55) + (coverage * 0.35) + (title_boost * 0.10)
             ranked.append((rerank_score, candidate))
 
@@ -39,8 +39,8 @@ class RerankService:
 
         content_terms = set(self._tokens(candidate.chunk.content))
         title_terms = set(self._tokens(candidate.chunk.document.title))
-        coverage = len(content_terms & query_terms) / len(query_terms)
-        title_boost = len(title_terms & query_terms) / len(query_terms)
+        coverage = len(content_terms & query_terms) / max(1, len(query_terms))
+        title_boost = len(title_terms & query_terms) / max(1, len(query_terms))
         return (candidate.blended_score * 0.55) + (coverage * 0.35) + (title_boost * 0.10)
 
     def _tokens(self, text: str) -> list[str]:

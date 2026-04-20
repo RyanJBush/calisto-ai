@@ -111,8 +111,10 @@ class RetrievalService:
             if not shared_terms:
                 continue
 
-            overlap = sum(min(query_counter[term], chunk_counter[term]) for term in shared_terms) / len(query_terms)
-            density = len(shared_terms) / len(query_term_set)
+            overlap = sum(min(query_counter[term], chunk_counter[term]) for term in shared_terms) / max(
+                1, len(query_terms)
+            )
+            density = len(shared_terms) / max(1, len(query_term_set))
             score = min(1.0, (overlap * 0.7) + (density * 0.3))
             scored.append((chunk.id, score))
 

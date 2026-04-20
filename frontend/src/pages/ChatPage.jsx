@@ -74,12 +74,14 @@ export default function ChatPage() {
             {selectedCitation ? (
               <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
                 {selectedCitation.source_preview.slice(0, selectedCitation.highlight_start)}
-                <mark className="rounded bg-amber-200 px-0.5">
-                  {selectedCitation.source_preview.slice(
-                    selectedCitation.highlight_start,
-                    selectedCitation.highlight_end
-                  )}
-                </mark>
+                {selectedCitation.highlight_end > selectedCitation.highlight_start ? (
+                  <mark className="rounded bg-amber-200 px-0.5">
+                    {selectedCitation.source_preview.slice(
+                      selectedCitation.highlight_start,
+                      selectedCitation.highlight_end
+                    )}
+                  </mark>
+                ) : null}
                 {selectedCitation.source_preview.slice(selectedCitation.highlight_end)}
               </p>
             ) : (

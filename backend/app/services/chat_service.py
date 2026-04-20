@@ -62,7 +62,9 @@ class ChatService:
             .all()
         )
 
-    def _build_source_preview(self, content: str, query: str, window: int = 220) -> tuple[str, int, int]:
+    def _build_source_preview(
+        self, content: str, query: str, max_preview_chars: int = 220
+    ) -> tuple[str, int, int]:
         terms = tokenize(query)
         content_lower = content.lower()
 
@@ -76,12 +78,12 @@ class ChatService:
                     best_match_len = len(term)
 
         if best_match_start is None:
-            preview = content[:window]
+            preview = content[:max_preview_chars]
             highlight_end = min(len(preview), max(1, int(len(preview) * DEFAULT_PREVIEW_HIGHLIGHT_RATIO)))
             return preview, 0, highlight_end
 
-        preview_start = max(0, best_match_start - (window // 3))
-        preview_end = min(len(content), preview_start + window)
+        preview_start = max(0, best_match_start - (max_preview_chars // 3))
+        preview_end = min(len(content), preview_start + max_preview_chars)
         preview = content[preview_start:preview_end]
         highlight_start = max(0, best_match_start - preview_start)
         highlight_end = min(len(preview), highlight_start + best_match_len)
