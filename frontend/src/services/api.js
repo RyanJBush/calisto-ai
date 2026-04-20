@@ -54,3 +54,8 @@ export async function fetchHistory() {
   const { data } = await api.get("/api/chat/history");
   return data;
 }
+
+export async function fetchAdminAnalyticsSummary() {
+  const { data } = await api.get("/api/admin/analytics/summary");
+  return data;
+}

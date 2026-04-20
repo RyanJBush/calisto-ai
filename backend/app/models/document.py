@@ -20,3 +20,21 @@ class Document(Base):
     organization = relationship("Organization", back_populates="documents")
     uploader = relationship("User", back_populates="documents")
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
+    ingestion_runs = relationship(
+        "IngestionRun",
+        back_populates="document",
+        cascade="all, delete-orphan",
+        order_by="IngestionRun.id",
+    )
+
+    @property
+    def ingestion_status(self) -> str:
+        if not self.ingestion_runs:
+            return "pending"
+        return self.ingestion_runs[-1].status
+
+    @property
+    def ingestion_error(self) -> str | None:
+        if not self.ingestion_runs:
+            return None
+        return self.ingestion_runs[-1].error_message

@@ -47,6 +47,7 @@ def test_document_chat_flow_with_citations() -> None:
         )
         assert upload.status_code == 200
         doc_id = upload.json()["id"]
+        assert upload.json()["ingestion_status"] == "completed"
 
         listed = client.get("/api/documents", headers=headers)
         assert listed.status_code == 200
@@ -65,6 +66,9 @@ def test_document_chat_flow_with_citations() -> None:
         payload = query.json()
         assert payload["session_id"] > 0
         assert len(payload["citations"]) >= 1
+        assert "source_preview" in payload["citations"][0]
+        assert payload["citations"][0]["highlight_end"] > payload["citations"][0]["highlight_start"]
+        assert "retrieval_score" in payload["citations"][0]
 
         history = client.get("/api/chat/history", headers=headers)
         assert history.status_code == 200
@@ -81,3 +85,20 @@ def test_viewer_cannot_upload_documents() -> None:
             json={"title": "Viewer Doc", "content": "should fail"},
         )
         assert upload.status_code == 403
+
+
+def test_admin_analytics_summary_authorization() -> None:
+    admin_headers = auth_header("admin@calisto.ai")
+    member_headers = auth_header("member@calisto.ai")
+
+    with TestClient(app) as client:
+        member_response = client.get("/api/admin/analytics/summary", headers=member_headers)
+        assert member_response.status_code == 403
+
+        admin_response = client.get("/api/admin/analytics/summary", headers=admin_headers)
+        assert admin_response.status_code == 200
+        payload = admin_response.json()
+        assert payload["documents_total"] >= 0
+        assert payload["chunks_total"] >= 0
+        assert payload["chat_sessions_total"] >= 0
+        assert payload["queries_total"] >= 0

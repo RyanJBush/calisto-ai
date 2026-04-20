@@ -7,6 +7,9 @@ import numpy as np
 class SearchResult:
     item_id: int
     score: float
+    vector_score: float = 0.0
+    keyword_score: float = 0.0
+    rerank_score: float = 0.0
 
 
 class VectorStore:
@@ -57,12 +60,25 @@ class FaissVectorStore(VectorStore):
             for score, idx in zip(distances[0], indices[0], strict=False):
                 if idx < 0 or idx >= len(self.ids):
                     continue
-                results.append(SearchResult(item_id=self.ids[idx], score=float(score)))
+                results.append(
+                    SearchResult(
+                        item_id=self.ids[idx],
+                        score=float(score),
+                        vector_score=float(score),
+                    )
+                )
             return results
 
         scores = (self.matrix @ query.T).reshape(-1)
         ranked = np.argsort(-scores)[:top_k]
-        return [SearchResult(item_id=self.ids[int(idx)], score=float(scores[int(idx)])) for idx in ranked]
+        return [
+            SearchResult(
+                item_id=self.ids[int(idx)],
+                score=float(scores[int(idx)]),
+                vector_score=float(scores[int(idx)]),
+            )
+            for idx in ranked
+        ]
 
 
 vector_store = FaissVectorStore(dimensions=32)

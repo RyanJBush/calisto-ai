@@ -23,6 +23,8 @@ class DocumentResponse(BaseModel):
     title: str
     source_name: str
     created_at: datetime
+    ingestion_status: str
+    ingestion_error: str | None = None
 
     class Config:
         from_attributes = True
