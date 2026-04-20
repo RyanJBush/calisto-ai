@@ -9,3 +9,14 @@ class AdminAnalyticsSummaryResponse(BaseModel):
     ingestions_processing: int
     ingestions_completed: int
     ingestions_failed: int
+
+
+class AdminTopDocumentResponse(BaseModel):
+    document_id: int
+    title: str
+    indexed_chunks: int
+
+
+class AdminIngestionStatusResponse(BaseModel):
+    status: str
+    count: int

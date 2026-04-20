@@ -25,6 +25,7 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     ingestion_status: str
     ingestion_error: str | None = None
+    ingestion_attempts: int = 0
 
     class Config:
         from_attributes = True
@@ -33,3 +34,16 @@ class DocumentResponse(BaseModel):
 class DocumentDetailResponse(DocumentResponse):
     content: str
     chunks: list[ChunkResponse]
+
+
+class IngestionRunResponse(BaseModel):
+    id: int
+    document_id: int
+    status: str
+    attempts: int
+    error_message: str | None = None
+    started_at: datetime
+    completed_at: datetime | None = None
+
+    class Config:
+        from_attributes = True

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { listDocuments, uploadDocument } from "../services/api";
+import { fetchDocumentIngestionRuns, listDocuments, uploadDocument } from "../services/api";
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [title, setTitle] = useState("Architecture Notes");
   const [content, setContent] = useState("Calisto AI uses retrieval and citations for trustworthy answers.");
   const [status, setStatus] = useState("");
+  const [selectedDocumentId, setSelectedDocumentId] = useState(null);
+  const [ingestionRuns, setIngestionRuns] = useState([]);
 
   async function loadDocuments() {
     const data = await listDocuments();
@@ -25,6 +27,17 @@ export default function DocumentsPage() {
       await loadDocuments();
     } catch {
       setStatus("Upload failed. Ensure your role has access.");
+    }
+  }
+
+  async function onViewIngestion(documentId) {
+    try {
+      const runs = await fetchDocumentIngestionRuns(documentId);
+      setSelectedDocumentId(documentId);
+      setIngestionRuns(runs);
+    } catch {
+      setSelectedDocumentId(documentId);
+      setIngestionRuns([]);
     }
   }
 
@@ -53,7 +66,25 @@ export default function DocumentsPage() {
               <p className="font-medium text-slate-800">{doc.title}</p>
               <p className="text-xs text-slate-500">Source: {doc.source_name}</p>
               <p className="text-xs text-slate-500">Ingestion: {doc.ingestion_status}</p>
+              <p className="text-xs text-slate-500">Attempts: {doc.ingestion_attempts}</p>
               {doc.ingestion_error && <p className="text-xs text-rose-600">Error: {doc.ingestion_error}</p>}
+              <button
+                type="button"
+                onClick={() => onViewIngestion(doc.id)}
+                className="mt-2 rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                View ingestion timeline
+              </button>
+              {selectedDocumentId === doc.id && (
+                <ul className="mt-2 space-y-1 rounded bg-slate-50 p-2 text-xs text-slate-600">
+                  {ingestionRuns.map((run) => (
+                    <li key={run.id}>
+                      #{run.id} {run.status} • attempts {run.attempts}
+                    </li>
+                  ))}
+                  {ingestionRuns.length === 0 && <li>No ingestion runs available.</li>}
+                </ul>
+              )}
             </li>
           ))}
           {documents.length === 0 && <li className="text-sm text-slate-500">No documents uploaded yet.</li>}

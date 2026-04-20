@@ -17,7 +17,7 @@ def query(
     user: User = Depends(get_current_user),
 ) -> ChatQueryResponse:
     service = ChatService(db)
-    session, answer, citations = service.query(user, payload.query, payload.session_id)
+    session, answer, citations = service.query(user, payload.query, payload.session_id, payload.filters)
     return ChatQueryResponse(session_id=session.id, answer=answer, citations=citations)
 
 

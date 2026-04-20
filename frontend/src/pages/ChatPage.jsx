@@ -27,6 +27,33 @@ export default function ChatPage() {
     await loadHistory();
   }
 
+  function renderHighlightedPreview(citation) {
+    const ranges = citation.highlight_ranges?.length
+      ? citation.highlight_ranges
+      : [[citation.highlight_start, citation.highlight_end]];
+    const fragments = [];
+    let cursor = 0;
+    ranges.forEach(([start, end], index) => {
+      const safeStart = Math.max(cursor, start);
+      const safeEnd = Math.max(safeStart, end);
+      if (safeStart > cursor) {
+        fragments.push(
+          <span key={`plain-${index}`}>{citation.source_preview.slice(cursor, safeStart)}</span>
+        );
+      }
+      fragments.push(
+        <mark key={`mark-${index}`} className="rounded bg-amber-200 px-0.5">
+          {citation.source_preview.slice(safeStart, safeEnd)}
+        </mark>
+      );
+      cursor = safeEnd;
+    });
+    if (cursor < citation.source_preview.length) {
+      fragments.push(<span key="tail">{citation.source_preview.slice(cursor)}</span>);
+    }
+    return fragments;
+  }
+
   return (
     <div className="space-y-6">
       <form onSubmit={onAsk} className="rounded-lg border border-slate-200 bg-white p-5">
@@ -72,18 +99,7 @@ export default function ChatPage() {
           <div className="rounded-lg border border-slate-200 bg-white p-5">
             <h3 className="text-sm font-semibold uppercase text-slate-500">Source Preview</h3>
             {selectedCitation ? (
-              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">
-                {selectedCitation.source_preview.slice(0, selectedCitation.highlight_start)}
-                {selectedCitation.highlight_end > selectedCitation.highlight_start ? (
-                  <mark className="rounded bg-amber-200 px-0.5">
-                    {selectedCitation.source_preview.slice(
-                      selectedCitation.highlight_start,
-                      selectedCitation.highlight_end
-                    )}
-                  </mark>
-                ) : null}
-                {selectedCitation.source_preview.slice(selectedCitation.highlight_end)}
-              </p>
+              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>
             ) : (
               <p className="mt-3 text-sm text-slate-500">Select a citation to preview highlighted source text.</p>
             )}

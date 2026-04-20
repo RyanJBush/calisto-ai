@@ -48,6 +48,7 @@ def test_document_chat_flow_with_citations() -> None:
         assert upload.status_code == 200
         doc_id = upload.json()["id"]
         assert upload.json()["ingestion_status"] == "completed"
+        assert upload.json()["ingestion_attempts"] >= 1
 
         listed = client.get("/api/documents", headers=headers)
         assert listed.status_code == 200
@@ -60,7 +61,10 @@ def test_document_chat_flow_with_citations() -> None:
         query = client.post(
             "/api/chat/query",
             headers=headers,
-            json={"query": "How does Calisto answer questions?"},
+            json={
+                "query": "How does Calisto answer questions in handbook?",
+                "filters": {"source_name": "handbook"},
+            },
         )
         assert query.status_code == 200
         payload = query.json()
@@ -68,7 +72,13 @@ def test_document_chat_flow_with_citations() -> None:
         assert len(payload["citations"]) >= 1
         assert "source_preview" in payload["citations"][0]
         assert payload["citations"][0]["highlight_end"] > payload["citations"][0]["highlight_start"]
+        assert len(payload["citations"][0]["highlight_ranges"]) >= 1
         assert "retrieval_score" in payload["citations"][0]
+
+        ingestion_runs = client.get(f"/api/documents/{doc_id}/ingestion-runs", headers=headers)
+        assert ingestion_runs.status_code == 200
+        assert len(ingestion_runs.json()) >= 1
+        assert ingestion_runs.json()[0]["status"] in {"processing", "completed", "failed"}
 
         history = client.get("/api/chat/history", headers=headers)
         assert history.status_code == 200
@@ -102,3 +112,13 @@ def test_admin_analytics_summary_authorization() -> None:
         assert payload["chunks_total"] >= 0
         assert payload["chat_sessions_total"] >= 0
         assert payload["queries_total"] >= 0
+
+        top_documents = client.get("/api/admin/analytics/top-documents", headers=admin_headers)
+        assert top_documents.status_code == 200
+        assert isinstance(top_documents.json(), list)
+        if top_documents.json():
+            assert "indexed_chunks" in top_documents.json()[0]
+
+        ingestion_breakdown = client.get("/api/admin/analytics/ingestion-breakdown", headers=admin_headers)
+        assert ingestion_breakdown.status_code == 200
+        assert isinstance(ingestion_breakdown.json(), list)
