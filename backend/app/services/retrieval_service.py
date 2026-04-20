@@ -1,15 +1,14 @@
-import re
 from collections import Counter
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
 from app.models import Chunk, Document
 from app.services.embedding_service import EmbeddingService
 from app.services.rerank_service import RerankService, RetrievalCandidate
+from app.services.text_utils import tokenize
 from app.services.vector_store import SearchResult, vector_store
-
-TOKEN_PATTERN = re.compile(r"[a-z0-9]{2,}")
 
 
 class RetrievalService:
@@ -90,13 +89,17 @@ class RetrievalService:
         query_terms = self._tokens(query)
         if not query_terms:
             return {}
+        if len(query_terms) == 0:
+            return {}
 
         query_counter = Counter(query_terms)
         query_term_set = set(query_terms)
+        content_filters = [Chunk.content.ilike(f"%{term}%") for term in query_term_set]
         candidates = (
             self.db.query(Chunk)
             .join(Document, Chunk.document_id == Document.id)
-            .filter(Document.organization_id == organization_id)
+            .filter(Document.organization_id == organization_id, or_(*content_filters))
+            .limit(max(limit * 5, 50))
             .all()
         )
 
@@ -119,4 +122,4 @@ class RetrievalService:
         return dict(scored[:limit])
 
     def _tokens(self, text: str) -> list[str]:
-        return TOKEN_PATTERN.findall(text.lower())
+        return tokenize(text)

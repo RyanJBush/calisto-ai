@@ -1,13 +1,10 @@
-import re
-
 from sqlalchemy.orm import Session
 
 from app.models import ChatMessage, ChatSession, User
 from app.schemas.chat import Citation
 from app.services.answer_service import AnswerService
 from app.services.retrieval_service import RetrievalService
-
-TOKEN_PATTERN = re.compile(r"[a-z0-9]{2,}")
+from app.services.text_utils import tokenize
 
 
 class ChatService:
@@ -38,7 +35,7 @@ class ChatService:
                     document_id=chunk.document_id,
                     document_title=chunk.document.title,
                     chunk_id=chunk.id,
-                    snippet=preview_text,
+                    snippet=preview_text[:180],
                     source_preview=preview_text,
                     highlight_start=highlight_start,
                     highlight_end=highlight_end,
@@ -64,7 +61,7 @@ class ChatService:
         )
 
     def _build_source_preview(self, content: str, query: str, window: int = 220) -> tuple[str, int, int]:
-        terms = TOKEN_PATTERN.findall(query.lower())
+        terms = tokenize(query)
         content_lower = content.lower()
 
         best_match_start = None

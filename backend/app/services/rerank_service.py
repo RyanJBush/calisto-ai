@@ -1,9 +1,7 @@
-import re
 from dataclasses import dataclass
 
 from app.models import Chunk
-
-TOKEN_PATTERN = re.compile(r"[a-z0-9]{2,}")
+from app.services.text_utils import tokenize
 
 
 @dataclass
@@ -46,4 +44,4 @@ class RerankService:
         return (candidate.blended_score * 0.55) + (coverage * 0.35) + (title_boost * 0.10)
 
     def _tokens(self, text: str) -> list[str]:
-        return TOKEN_PATTERN.findall(text.lower())
+        return tokenize(text)
