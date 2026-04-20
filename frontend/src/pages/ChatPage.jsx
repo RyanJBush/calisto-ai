@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchHistory, queryChat } from "../services/api";
+import { fetchHistory, queryChat, submitChatFeedback } from "../services/api";
 
 export default function ChatPage() {
   const [query, setQuery] = useState("What is Calisto AI?");
@@ -12,6 +12,12 @@ export default function ChatPage() {
   const [citationCoverage, setCitationCoverage] = useState(null);
   const [insufficientEvidence, setInsufficientEvidence] = useState(false);
   const [rewrittenQuery, setRewrittenQuery] = useState("");
+  const [latencyBreakdown, setLatencyBreakdown] = useState(null);
+  const [assistantMessageId, setAssistantMessageId] = useState(null);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [historyFilter, setHistoryFilter] = useState("");
+  const [collectionFilterId, setCollectionFilterId] = useState("");
 
   async function loadHistory() {
     const data = await fetchHistory();
@@ -24,7 +30,10 @@ export default function ChatPage() {
 
   async function onAsk(event) {
     event.preventDefault();
-    const response = await queryChat({ query });
+    const response = await queryChat({
+      query,
+      filters: collectionFilterId ? { collection_id: Number(collectionFilterId) } : undefined
+    });
     setAnswer(response.answer);
     setCitations(response.citations);
     setSelectedCitation(response.citations[0] || null);
@@ -32,7 +41,24 @@ export default function ChatPage() {
     setCitationCoverage(response.citation_coverage);
     setInsufficientEvidence(response.insufficient_evidence);
     setRewrittenQuery(response.rewritten_query);
+    setLatencyBreakdown(response.latency_breakdown_ms);
+    setAssistantMessageId(response.assistant_message_id);
+    setFeedbackStatus("");
+    setFeedbackComment("");
     await loadHistory();
+  }
+
+  async function onFeedback(rating) {
+    if (!assistantMessageId) {
+      return;
+    }
+    try {
+      await submitChatFeedback({ message_id: assistantMessageId, rating, comment: feedbackComment || null });
+      setFeedbackStatus("Feedback submitted.");
+      await loadHistory();
+    } catch {
+      setFeedbackStatus("Unable to submit feedback.");
+    }
   }
 
   function renderHighlightedPreview(citation) {
@@ -73,6 +99,12 @@ export default function ChatPage() {
           className="mb-3 w-full rounded-md border border-slate-300 px-3 py-2"
         />
         <button className="rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">Ask</button>
+        <input
+          value={collectionFilterId}
+          onChange={(event) => setCollectionFilterId(event.target.value)}
+          placeholder="Collection ID filter (optional)"
+          className="ml-3 rounded-md border border-slate-300 px-3 py-2 text-sm"
+        />
       </form>
 
       {answer && (
@@ -84,8 +116,37 @@ export default function ChatPage() {
               <p>Rewritten Query: {rewrittenQuery}</p>
               <p>Confidence: {((confidenceScore || 0) * 100).toFixed(0)}%</p>
               <p>Citation Coverage: {((citationCoverage || 0) * 100).toFixed(0)}%</p>
+              {latencyBreakdown && (
+                <p>
+                  Latency (ms): rewrite {latencyBreakdown.rewrite}, retrieval {latencyBreakdown.retrieval}, answer{" "}
+                  {latencyBreakdown.answer}, total {latencyBreakdown.total}
+                </p>
+              )}
               {insufficientEvidence && <p className="font-medium text-amber-600">Insufficient evidence fallback active.</p>}
             </div>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onFeedback(1)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                👍 Helpful
+              </button>
+              <button
+                type="button"
+                onClick={() => onFeedback(-1)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                👎 Not helpful
+              </button>
+              <input
+                value={feedbackComment}
+                onChange={(event) => setFeedbackComment(event.target.value)}
+                placeholder="Optional feedback"
+                className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+              />
+            </div>
+            {feedbackStatus && <p className="mt-1 text-xs text-slate-500">{feedbackStatus}</p>}
             <h4 className="mt-4 text-sm font-semibold uppercase text-slate-500">Citations</h4>
             <ul className="mt-2 space-y-2">
               {citations.map((citation) => (
@@ -123,13 +184,22 @@ export default function ChatPage() {
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase text-slate-500">Recent History</h3>
+        <input
+          value={historyFilter}
+          onChange={(event) => setHistoryFilter(event.target.value)}
+          placeholder="Filter history..."
+          className="mb-3 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+        />
         <ul className="space-y-2 text-sm text-slate-700">
-          {history.slice(-8).map((item) => (
+          {history
+            .filter((item) => item.content.toLowerCase().includes(historyFilter.toLowerCase()))
+            .slice(-8)
+            .map((item) => (
             <li key={item.id}>
               <span className="font-semibold">{item.role}: </span>
               {item.content}
             </li>
-          ))}
+            ))}
           {history.length === 0 && <li>No chat history yet.</li>}
         </ul>
       </section>

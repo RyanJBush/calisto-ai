@@ -1,10 +1,15 @@
+import time
+
 from sqlalchemy.orm import Session
 
-from app.models import ChatMessage, ChatSession, User
+from app.models import ChatFeedback, ChatMessage, ChatSession, User
 from app.schemas.chat import Citation, QueryFilters
+from app.services.audit_service import AuditService
 from app.services.answer_service import AnswerService
+from app.services.document_service import DocumentService
 from app.services.query_rewrite_service import QueryRewriteService
 from app.services.retrieval_service import RetrievalFilters, RetrievalService
+from app.services.security_text_service import SecurityTextService
 from app.services.text_utils import tokenize
 
 DEFAULT_PREVIEW_HIGHLIGHT_RATIO = 0.25
@@ -16,6 +21,9 @@ class ChatService:
         self.retrieval_service = RetrievalService(db)
         self.answer_service = AnswerService()
         self.query_rewrite_service = QueryRewriteService()
+        self.audit_service = AuditService(db)
+        self.security_text_service = SecurityTextService()
+        self.document_service = DocumentService(db)
 
     def _get_or_create_session(self, user: User, session_id: int | None) -> ChatSession:
         if session_id is not None:
@@ -34,23 +42,37 @@ class ChatService:
         session_id: int | None,
         filters: QueryFilters | None = None,
         grounded_mode: bool = True,
-    ) -> tuple[ChatSession, str, list[Citation], bool, float, float, str]:
+    ) -> tuple[ChatSession, int, str, list[Citation], bool, float, float, str, dict[str, float]]:
         session = self._get_or_create_session(user, session_id)
+        total_start = time.perf_counter()
+        rewrite_start = time.perf_counter()
         rewritten_query = self.query_rewrite_service.rewrite(query_text)
+        rewrite_ms = (time.perf_counter() - rewrite_start) * 1000
+        accessible_ids = self.document_service.accessible_document_ids(user)
+        requested_ids = filters.document_ids if filters and filters.document_ids else None
+        effective_ids = (
+            [doc_id for doc_id in accessible_ids if requested_ids is None or doc_id in requested_ids]
+            if accessible_ids
+            else []
+        )
         retrieval_filters = RetrievalFilters(
             source_name=filters.source_name if filters else None,
-            document_ids=filters.document_ids if filters else None,
+            document_ids=effective_ids,
+            collection_id=filters.collection_id if filters else None,
         )
+        retrieval_start = time.perf_counter()
         retrieved = self.retrieval_service.retrieve(
             rewritten_query,
             organization_id=user.organization_id,
             filters=retrieval_filters,
         )
+        retrieval_ms = (time.perf_counter() - retrieval_start) * 1000
 
         citations: list[Citation] = []
         for chunk, score in retrieved:
             preview_text, highlight_start, highlight_end, highlight_ranges = self._build_source_preview(
-                chunk.content, rewritten_query
+                self.security_text_service.sanitize_prompt_injection(chunk.content),
+                rewritten_query,
             )
             citations.append(
                 Citation(
@@ -66,23 +88,72 @@ class ChatService:
                 )
             )
 
+        answer_start = time.perf_counter()
         answer_result = self.answer_service.generate_answer(rewritten_query, citations, grounded_mode=grounded_mode)
+        answer_ms = (time.perf_counter() - answer_start) * 1000
         citation_coverage = self._compute_citation_coverage(rewritten_query, citations)
         confidence_score = self._compute_confidence(citations, citation_coverage, answer_result.insufficient_evidence)
+        total_ms = (time.perf_counter() - total_start) * 1000
 
         self.db.add(ChatMessage(session_id=session.id, role="user", content=query_text))
-        self.db.add(ChatMessage(session_id=session.id, role="assistant", content=answer_result.text))
+        assistant_message = ChatMessage(session_id=session.id, role="assistant", content=answer_result.text)
+        self.db.add(assistant_message)
+        self.db.flush()
+        self.audit_service.log(
+            organization_id=user.organization_id,
+            action="chat_query",
+            resource_type="chat_session",
+            resource_id=session.id,
+            details=(
+                f"rewritten_query={rewritten_query};citations={len(citations)};"
+                f"confidence={confidence_score};insufficient_evidence={answer_result.insufficient_evidence};"
+                f"latency_ms_total={round(total_ms, 2)}"
+            ),
+            user=user,
+        )
         self.db.commit()
         self.db.refresh(session)
         return (
             session,
+            assistant_message.id,
             answer_result.text,
             citations,
             answer_result.insufficient_evidence,
             confidence_score,
             citation_coverage,
             rewritten_query,
+            {
+                "rewrite": round(rewrite_ms, 2),
+                "retrieval": round(retrieval_ms, 2),
+                "answer": round(answer_ms, 2),
+                "total": round(total_ms, 2),
+            },
         )
+
+    def submit_feedback(self, user: User, message_id: int, rating: int, comment: str | None) -> ChatFeedback:
+        rating_value = 1 if rating > 0 else -1
+        message = (
+            self.db.query(ChatMessage)
+            .join(ChatSession, ChatMessage.session_id == ChatSession.id)
+            .filter(ChatMessage.id == message_id, ChatSession.user_id == user.id, ChatMessage.role == "assistant")
+            .first()
+        )
+        if message is None:
+            raise ValueError("Assistant message not found for this user.")
+
+        feedback = ChatFeedback(message_id=message_id, user_id=user.id, rating=rating_value, comment=comment)
+        self.db.add(feedback)
+        self.audit_service.log(
+            organization_id=user.organization_id,
+            action="chat_feedback",
+            resource_type="chat_message",
+            resource_id=message_id,
+            details=f"rating={rating_value}",
+            user=user,
+        )
+        self.db.commit()
+        self.db.refresh(feedback)
+        return feedback
 
     def get_history(self, user_id: int) -> list[ChatMessage]:
         return (

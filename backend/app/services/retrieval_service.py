@@ -16,6 +16,7 @@ from app.services.vector_store import SearchResult, vector_store
 class RetrievalFilters:
     source_name: str | None = None
     document_ids: list[int] | None = None
+    collection_id: int | None = None
 
 
 class RetrievalService:
@@ -139,6 +140,8 @@ class RetrievalService:
             query_builder = query_builder.filter(Document.source_name.ilike(f"%{filters.source_name}%"))
         if filters.document_ids:
             query_builder = query_builder.filter(Document.id.in_(filters.document_ids))
+        if filters.collection_id:
+            query_builder = query_builder.filter(Document.collection_id == filters.collection_id)
 
         candidates = (
             query_builder.options(joinedload(Chunk.document))
@@ -181,8 +184,12 @@ class RetrievalService:
         return min(1.0, (title_overlap * 0.7) + (source_overlap * 0.3))
 
     def _matches_filters(self, chunk: Chunk, filters: RetrievalFilters) -> bool:
+        if filters.document_ids is not None and len(filters.document_ids) == 0:
+            return False
         if filters.document_ids and chunk.document_id not in filters.document_ids:
             return False
         if filters.source_name and filters.source_name.lower() not in chunk.document.source_name.lower():
+            return False
+        if filters.collection_id and chunk.document.collection_id != filters.collection_id:
             return False
         return True

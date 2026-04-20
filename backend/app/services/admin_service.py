@@ -1,7 +1,7 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import ChatMessage, ChatSession, Chunk, Document, IngestionRun, User
+from app.models import AuditLog, ChatFeedback, ChatMessage, ChatSession, Chunk, Collection, Document, IngestionRun, User
 
 
 class AdminService:
@@ -101,3 +101,51 @@ class AdminService:
             .all()
         )
         return [{"status": row.status, "count": int(row.count)} for row in rows]
+
+    def get_audit_logs(self, organization_id: int, limit: int = 50) -> list[AuditLog]:
+        return (
+            self.db.query(AuditLog)
+            .filter(AuditLog.organization_id == organization_id)
+            .order_by(AuditLog.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def get_feedback_summary(self, organization_id: int) -> dict[str, int | float]:
+        base_query = (
+            self.db.query(ChatFeedback)
+            .join(User, ChatFeedback.user_id == User.id)
+            .filter(User.organization_id == organization_id)
+        )
+        total_feedback = base_query.count()
+        positive_feedback = base_query.filter(ChatFeedback.rating > 0).count()
+        negative_feedback = base_query.filter(ChatFeedback.rating < 0).count()
+        positive_ratio = positive_feedback / max(1, total_feedback)
+        return {
+            "total_feedback": int(total_feedback),
+            "positive_feedback": int(positive_feedback),
+            "negative_feedback": int(negative_feedback),
+            "positive_ratio": round(positive_ratio, 4),
+        }
+
+    def get_collection_summary(self, organization_id: int) -> list[dict[str, int | str]]:
+        rows = (
+            self.db.query(
+                Collection.id.label("collection_id"),
+                Collection.name.label("name"),
+                func.count(Document.id).label("documents_count"),
+            )
+            .outerjoin(Document, Document.collection_id == Collection.id)
+            .filter(Collection.organization_id == organization_id)
+            .group_by(Collection.id, Collection.name)
+            .order_by(func.count(Document.id).desc(), Collection.id.asc())
+            .all()
+        )
+        return [
+            {
+                "collection_id": int(row.collection_id),
+                "name": row.name,
+                "documents_count": int(row.documents_count),
+            }
+            for row in rows
+        ]

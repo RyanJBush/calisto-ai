@@ -3,7 +3,11 @@ import { useOutletContext } from "react-router-dom";
 
 import StatsCard from "../components/StatsCard";
 import {
+  fetchAdminAuditLogs,
   fetchAdminAnalyticsSummary,
+  fetchAdminBenchmark,
+  fetchAdminCollectionSummary,
+  fetchAdminFeedbackSummary,
   fetchAdminIngestionBreakdown,
   fetchAdminTopDocuments
 } from "../services/api";
@@ -13,6 +17,10 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState(null);
   const [topDocuments, setTopDocuments] = useState([]);
   const [ingestionBreakdown, setIngestionBreakdown] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [feedbackSummary, setFeedbackSummary] = useState(null);
+  const [benchmark, setBenchmark] = useState(null);
+  const [collectionSummary, setCollectionSummary] = useState([]);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -23,18 +31,30 @@ export default function DashboardPage() {
     Promise.all([
       fetchAdminAnalyticsSummary(),
       fetchAdminTopDocuments(),
-      fetchAdminIngestionBreakdown()
+      fetchAdminIngestionBreakdown(),
+      fetchAdminAuditLogs(),
+      fetchAdminFeedbackSummary(),
+      fetchAdminBenchmark(),
+      fetchAdminCollectionSummary()
     ])
-      .then(([summaryData, topDocumentsData, ingestionData]) => {
+      .then(([summaryData, topDocumentsData, ingestionData, auditData, feedbackData, benchmarkData, collectionData]) => {
         setSummary(summaryData);
         setTopDocuments(topDocumentsData);
         setIngestionBreakdown(ingestionData);
+        setAuditLogs(auditData.slice(0, 8));
+        setFeedbackSummary(feedbackData);
+        setBenchmark(benchmarkData);
+        setCollectionSummary(collectionData);
         setStatus("");
       })
       .catch(() => {
         setSummary(null);
         setTopDocuments([]);
         setIngestionBreakdown([]);
+        setAuditLogs([]);
+        setFeedbackSummary(null);
+        setBenchmark(null);
+        setCollectionSummary([]);
         setStatus("Unable to load admin analytics.");
       });
   }, [user?.role]);
@@ -45,6 +65,10 @@ export default function DashboardPage() {
         <StatsCard label="Documents Indexed" value={summary?.documents_total ?? "-"} />
         <StatsCard label="Chat Sessions" value={summary?.chat_sessions_total ?? "-"} />
         <StatsCard label="Queries" value={summary?.queries_total ?? "-"} />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <StatsCard label="Positive Feedback" value={feedbackSummary ? `${(feedbackSummary.positive_ratio * 100).toFixed(0)}%` : "-"} />
+        <StatsCard label="Benchmark Pass Rate" value={benchmark ? `${(benchmark.pass_rate * 100).toFixed(0)}%` : "-"} />
       </div>
       <div className="rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-slate-900">Platform Overview</h2>
@@ -88,6 +112,32 @@ export default function DashboardPage() {
           </ul>
         </section>
       </div>
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <h3 className="text-sm font-semibold uppercase text-slate-500">Recent Audit Events</h3>
+        <ul className="mt-3 space-y-2 text-sm text-slate-700">
+          {auditLogs.map((event) => (
+            <li key={event.id} className="rounded border border-slate-100 p-2">
+              <p className="font-medium">{event.action}</p>
+              <p className="text-xs text-slate-500">
+                {event.resource_type} #{event.resource_id ?? "-"} • {event.details || "no details"}
+              </p>
+            </li>
+          ))}
+          {auditLogs.length === 0 && <li className="text-slate-500">No audit events yet.</li>}
+        </ul>
+      </section>
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <h3 className="text-sm font-semibold uppercase text-slate-500">Collections</h3>
+        <ul className="mt-3 space-y-2 text-sm text-slate-700">
+          {collectionSummary.map((collection) => (
+            <li key={collection.collection_id} className="flex items-center justify-between rounded border border-slate-100 p-2">
+              <span>{collection.name}</span>
+              <span className="text-slate-500">{collection.documents_count} docs</span>
+            </li>
+          ))}
+          {collectionSummary.length === 0 && <li className="text-slate-500">No collections available.</li>}
+        </ul>
+      </section>
     </div>
   );
 }

@@ -37,6 +37,13 @@ def test_document_chat_flow_with_citations() -> None:
     headers = auth_header("member@calisto.ai")
 
     with TestClient(app) as client:
+        collection = client.post(
+            "/api/documents/collections",
+            headers=headers,
+            json={"name": "Employee Docs"},
+        )
+        assert collection.status_code == 200
+
         upload = client.post(
             "/api/documents/upload",
             headers=headers,
@@ -44,6 +51,7 @@ def test_document_chat_flow_with_citations() -> None:
                 "title": "Employee Handbook",
                 "content": "Calisto AI supports citation-based answers and enterprise RBAC policies.",
                 "source_name": "handbook.txt",
+                "collection_id": collection.json()["id"],
             },
         )
         assert upload.status_code == 200
@@ -71,20 +79,30 @@ def test_document_chat_flow_with_citations() -> None:
             headers=headers,
             json={
                 "query": "How does Calisto answer questions in handbook?",
-                "filters": {"source_name": "handbook"},
+                "filters": {"source_name": "handbook", "collection_id": collection.json()["id"]},
             },
         )
         assert query.status_code == 200
         payload = query.json()
         assert payload["session_id"] > 0
+        assert payload["assistant_message_id"] > 0
         assert len(payload["citations"]) >= 1
         assert payload["confidence_score"] >= 0
         assert payload["citation_coverage"] >= 0
         assert payload["rewritten_query"]
+        assert payload["latency_breakdown_ms"]["total"] >= 0
         assert "source_preview" in payload["citations"][0]
         assert payload["citations"][0]["highlight_end"] > payload["citations"][0]["highlight_start"]
         assert len(payload["citations"][0]["highlight_ranges"]) >= 1
         assert "retrieval_score" in payload["citations"][0]
+
+        feedback = client.post(
+            "/api/chat/feedback",
+            headers=headers,
+            json={"message_id": payload["assistant_message_id"], "rating": 1, "comment": "Good answer"},
+        )
+        assert feedback.status_code == 200
+        assert feedback.json()["rating"] == 1
 
         ingestion_runs = client.get(f"/api/documents/{doc_id}/ingestion-runs", headers=headers)
         assert ingestion_runs.status_code == 200
@@ -136,6 +154,36 @@ def test_viewer_cannot_upload_documents() -> None:
         assert upload.status_code == 403
 
 
+def test_document_access_grants_for_viewer() -> None:
+    admin_headers = auth_header("admin@calisto.ai")
+    member_headers = auth_header("member@calisto.ai")
+    viewer_headers = auth_header("viewer@calisto.ai")
+
+    with TestClient(app) as client:
+        upload = client.post(
+            "/api/documents/upload",
+            headers=member_headers,
+            json={"title": "Restricted Doc", "content": "viewer should access after grant", "source_name": "restricted.txt"},
+        )
+        assert upload.status_code == 200
+        doc_id = upload.json()["id"]
+
+        viewer_list_before = client.get("/api/documents", headers=viewer_headers)
+        assert viewer_list_before.status_code == 200
+        assert all(doc["id"] != doc_id for doc in viewer_list_before.json())
+
+        grant = client.post(
+            f"/api/documents/{doc_id}/access",
+            headers=admin_headers,
+            json={"user_id": 3, "permission": "read"},
+        )
+        assert grant.status_code == 200
+
+        viewer_list_after = client.get("/api/documents", headers=viewer_headers)
+        assert viewer_list_after.status_code == 200
+        assert any(doc["id"] == doc_id for doc in viewer_list_after.json())
+
+
 def test_admin_analytics_summary_authorization() -> None:
     admin_headers = auth_header("admin@calisto.ai")
     member_headers = auth_header("member@calisto.ai")
@@ -162,3 +210,19 @@ def test_admin_analytics_summary_authorization() -> None:
         ingestion_breakdown = client.get("/api/admin/analytics/ingestion-breakdown", headers=admin_headers)
         assert ingestion_breakdown.status_code == 200
         assert isinstance(ingestion_breakdown.json(), list)
+
+        audit_logs = client.get("/api/admin/audit-logs", headers=admin_headers)
+        assert audit_logs.status_code == 200
+        assert isinstance(audit_logs.json(), list)
+
+        feedback_summary = client.get("/api/admin/analytics/feedback-summary", headers=admin_headers)
+        assert feedback_summary.status_code == 200
+        assert "total_feedback" in feedback_summary.json()
+
+        benchmark = client.get("/api/admin/analytics/benchmark", headers=admin_headers)
+        assert benchmark.status_code == 200
+        assert "pass_rate" in benchmark.json()
+
+        collections = client.get("/api/admin/analytics/collections", headers=admin_headers)
+        assert collections.status_code == 200
+        assert isinstance(collections.json(), list)

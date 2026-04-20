@@ -17,6 +17,7 @@ class Document(Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     parent_document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), nullable=True)
+    collection_id: Mapped[int | None] = mapped_column(ForeignKey("collections.id"), nullable=True, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -25,6 +26,7 @@ class Document(Base):
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
     parent_document = relationship("Document", remote_side=[id], back_populates="versions")
     versions = relationship("Document", back_populates="parent_document")
+    collection = relationship("Collection")
     ingestion_runs = relationship(
         "IngestionRun",
         back_populates="document",

@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.core.logging import configure_logging, log_requests
 from app.core.metrics import metrics_store
+from app.core.rate_limit import InMemoryRateLimiter
 from app.db.seed import seed_demo_data
 from app.db.session import SessionLocal, init_db
 from app.routers import admin, auth, chat, documents, health
@@ -12,6 +14,7 @@ settings = get_settings()
 configure_logging()
 
 app = FastAPI(title=settings.app_name)
+rate_limiter = InMemoryRateLimiter(limit_per_minute=settings.rate_limit_per_minute)
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,6 +27,10 @@ app.add_middleware(
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
+    rate_limit_key = request.headers.get("authorization") or (request.client.host if request.client else "anonymous")
+    if not rate_limiter.is_allowed(rate_limit_key):
+        return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Please retry in a minute."})
+
     metrics_store.increment()
     return await log_requests(request, call_next)
 

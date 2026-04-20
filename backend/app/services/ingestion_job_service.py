@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.models import Chunk, Document, IngestionRun
 from app.services.embedding_service import EmbeddingService
 from app.services.ingestion_service import IngestionService
+from app.services.security_text_service import SecurityTextService
 from app.services.vector_store import vector_store
 
 
@@ -19,6 +20,7 @@ class IngestionJobService:
         db = SessionLocal()
         ingestion_service = IngestionService()
         embedding_service = EmbeddingService()
+        security_text_service = SecurityTextService()
 
         max_attempts = 3
         try:
@@ -39,6 +41,8 @@ class IngestionJobService:
                     db.query(Chunk).filter(Chunk.document_id == document_id).delete()
                     db.commit()
 
+                    safe_content = security_text_service.sanitize_prompt_injection(document.content)
+                    document.content = safe_content
                     chunks = ingestion_service.chunk_document(document)
                     for chunk in chunks:
                         db.add(chunk)
