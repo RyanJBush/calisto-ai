@@ -45,8 +45,23 @@ export async function uploadDocument(payload) {
   return data;
 }
 
+export async function createCollection(payload) {
+  const { data } = await api.post("/api/documents/collections", payload);
+  return data;
+}
+
+export async function listCollections() {
+  const { data } = await api.get("/api/documents/collections");
+  return data;
+}
+
 export async function queryChat(payload) {
   const { data } = await api.post("/api/chat/query", payload);
+  return data;
+}
+
+export async function submitChatFeedback(payload) {
+  const { data } = await api.post("/api/chat/feedback", payload);
   return data;
 }
 
@@ -57,5 +72,40 @@ export async function fetchHistory() {
 
 export async function fetchAdminAnalyticsSummary() {
   const { data } = await api.get("/api/admin/analytics/summary");
+  return data;
+}
+
+export async function fetchAdminTopDocuments() {
+  const { data } = await api.get("/api/admin/analytics/top-documents");
+  return data;
+}
+
+export async function fetchAdminIngestionBreakdown() {
+  const { data } = await api.get("/api/admin/analytics/ingestion-breakdown");
+  return data;
+}
+
+export async function fetchAdminAuditLogs() {
+  const { data } = await api.get("/api/admin/audit-logs");
+  return data;
+}
+
+export async function fetchAdminFeedbackSummary() {
+  const { data } = await api.get("/api/admin/analytics/feedback-summary");
+  return data;
+}
+
+export async function fetchAdminBenchmark() {
+  const { data } = await api.get("/api/admin/analytics/benchmark");
+  return data;
+}
+
+export async function fetchAdminCollectionSummary() {
+  const { data } = await api.get("/api/admin/analytics/collections");
+  return data;
+}
+
+export async function fetchDocumentIngestionRuns(documentId) {
+  const { data } = await api.get(`/api/documents/${documentId}/ingestion-runs`);
   return data;
 }

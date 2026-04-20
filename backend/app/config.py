@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-secret"
     jwt_algorithm: str = "HS256"
     jwt_exp_minutes: int = 60
+    rate_limit_per_minute: int = 300
     cors_origins: List[str] = ["http://localhost:5173"]
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
