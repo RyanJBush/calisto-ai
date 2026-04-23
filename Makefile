@@ -1,9 +1,12 @@
-.PHONY: bootstrap lint test run-backend run-frontend
+.PHONY: bootstrap init lint test run-backend run-frontend
 
 bootstrap:
 	python -m pip install --upgrade pip
 	pip install -r backend/requirements.txt
 	npm --prefix frontend install
+
+init:
+	cd backend && PYTHONPATH=. python scripts/init_db.py
 
 lint:
 	ruff check backend
