@@ -1,16 +1,31 @@
-.PHONY: bootstrap lint test run-backend run-frontend
+.PHONY: bootstrap init db-upgrade db-downgrade demo-seed smoke lint test run-backend run-frontend
 
 bootstrap:
 	python -m pip install --upgrade pip
 	pip install -r backend/requirements.txt
 	npm --prefix frontend install
 
+init:
+	cd backend && PYTHONPATH=. python scripts/init_db.py
+
+db-upgrade:
+	cd backend && PYTHONPATH=. alembic upgrade head
+
+db-downgrade:
+	cd backend && PYTHONPATH=. alembic downgrade -1
+
+demo-seed:
+	cd backend && PYTHONPATH=. python scripts/seed_demo_corpus.py
+
+smoke:
+	cd backend && PYTHONPATH=. python scripts/smoke_check.py
+
 lint:
 	ruff check backend
 	npm --prefix frontend run lint
 
 test:
-	cd backend && pytest tests
+	cd backend && rm -f test.db && DATABASE_URL=sqlite:///./test.db pytest tests
 	npm --prefix frontend run build
 
 run-backend:

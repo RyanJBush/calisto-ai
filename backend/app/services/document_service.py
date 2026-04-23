@@ -16,11 +16,17 @@ class DocumentService:
         self.audit_service = AuditService(db)
         self.security_text_service = SecurityTextService()
 
-    def upload_document(self, payload: DocumentUploadRequest, user: User) -> Document:
-        source_name = payload.source_name or payload.title
-        normalized_content = (
-            self.security_text_service.redact_pii(payload.content) if payload.redact_pii else payload.content
-        )
+    def _create_document(
+        self,
+        *,
+        title: str,
+        content: str,
+        source_name: str,
+        redact_pii: bool,
+        collection_id: int | None,
+        user: User,
+    ) -> Document:
+        normalized_content = self.security_text_service.redact_pii(content) if redact_pii else content
         content_hash = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
         duplicate = (
             self.db.query(Document)
@@ -48,16 +54,16 @@ class DocumentService:
         document = Document(
             organization_id=user.organization_id,
             uploaded_by=user.id,
-            title=payload.title,
+            title=title,
             source_name=source_name,
             content_hash=content_hash,
             version=next_version,
             parent_document_id=parent_document_id,
-            collection_id=payload.collection_id,
+            collection_id=collection_id,
             content=normalized_content,
         )
-        if payload.collection_id is not None:
-            collection = self.db.get(Collection, payload.collection_id)
+        if collection_id is not None:
+            collection = self.db.get(Collection, collection_id)
             if collection is None or collection.organization_id != user.organization_id:
                 raise ValueError("Collection not found for this organization.")
         self.db.add(document)
@@ -75,13 +81,43 @@ class DocumentService:
             action="document_upload",
             resource_type="document",
             resource_id=document.id,
-            details=f"source={source_name};version={document.version};redact_pii={payload.redact_pii}",
+            details=f"source={source_name};version={document.version};redact_pii={redact_pii}",
             user=user,
         )
         self.db.commit()
 
         self.db.refresh(document)
         return document
+
+    def upload_document(self, payload: DocumentUploadRequest, user: User) -> Document:
+        source_name = payload.source_name or payload.title
+        return self._create_document(
+            title=payload.title,
+            content=payload.content,
+            source_name=source_name,
+            redact_pii=payload.redact_pii,
+            collection_id=payload.collection_id,
+            user=user,
+        )
+
+    def upload_document_content(
+        self,
+        *,
+        title: str,
+        content: str,
+        source_name: str | None,
+        redact_pii: bool,
+        collection_id: int | None,
+        user: User,
+    ) -> Document:
+        return self._create_document(
+            title=title,
+            content=content,
+            source_name=source_name or title,
+            redact_pii=redact_pii,
+            collection_id=collection_id,
+            user=user,
+        )
 
     def list_documents_for_user(self, user: User) -> list[Document]:
         query = (
@@ -190,3 +226,19 @@ class DocumentService:
             raise ValueError("Document access grant not found.")
         self.db.delete(access)
         self.db.commit()
+
+    def retry_ingestion(self, document_id: int, organization_id: int) -> IngestionRun:
+        document = (
+            self.db.query(Document)
+            .filter(Document.id == document_id, Document.organization_id == organization_id)
+            .first()
+        )
+        if document is None:
+            raise ValueError("Document not found.")
+
+        run = IngestionRun(document_id=document_id, status="queued", attempts=0)
+        self.db.add(run)
+        self.db.commit()
+        self.db.refresh(run)
+        ingestion_job_service.enqueue(document_id, run.id)
+        return run

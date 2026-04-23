@@ -24,6 +24,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearToken();
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export async function login(email, password) {
   const { data } = await api.post("/api/auth/login", { email, password });
   setToken(data.access_token);
@@ -42,6 +55,19 @@ export async function listDocuments() {
 
 export async function uploadDocument(payload) {
   const { data } = await api.post("/api/documents/upload", payload);
+  return data;
+}
+
+export async function uploadDocumentFile(payload) {
+  const form = new FormData();
+  form.append("title", payload.title);
+  form.append("file", payload.file);
+  if (payload.source_name) form.append("source_name", payload.source_name);
+  if (payload.redact_pii) form.append("redact_pii", "true");
+  if (payload.collection_id) form.append("collection_id", String(payload.collection_id));
+  const { data } = await api.post("/api/documents/upload-file", form, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
   return data;
 }
 
@@ -85,8 +111,8 @@ export async function fetchAdminIngestionBreakdown() {
   return data;
 }
 
-export async function fetchAdminAuditLogs() {
-  const { data } = await api.get("/api/admin/audit-logs");
+export async function fetchAdminAuditLogs(params = {}) {
+  const { data } = await api.get("/api/admin/audit-logs", { params });
   return data;
 }
 
@@ -105,7 +131,36 @@ export async function fetchAdminCollectionSummary() {
   return data;
 }
 
+export async function fetchAdminUsers() {
+  const { data } = await api.get("/api/admin/users");
+  return data;
+}
+
+export async function fetchWorkspaceSettings() {
+  const { data } = await api.get("/api/admin/workspace");
+  return data;
+}
+
+export async function updateWorkspaceSettings(payload) {
+  const { data } = await api.put("/api/admin/workspace", payload);
+  return data;
+}
+
 export async function fetchDocumentIngestionRuns(documentId) {
   const { data } = await api.get(`/api/documents/${documentId}/ingestion-runs`);
   return data;
+}
+
+export async function retryDocumentIngestion(documentId) {
+  const { data } = await api.post(`/api/documents/${documentId}/retry-ingestion`);
+  return data;
+}
+
+export async function grantDocumentAccess(documentId, payload) {
+  const { data } = await api.post(`/api/documents/${documentId}/access`, payload);
+  return data;
+}
+
+export async function revokeDocumentAccess(documentId, userId) {
+  await api.delete(`/api/documents/${documentId}/access/${userId}`);
 }
