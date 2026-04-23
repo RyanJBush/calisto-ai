@@ -1,3 +1,4 @@
+.PHONY: bootstrap init db-upgrade db-downgrade lint test run-backend run-frontend
 .PHONY: bootstrap init lint test run-backend run-frontend
 
 bootstrap:
@@ -8,12 +9,18 @@ bootstrap:
 init:
 	cd backend && PYTHONPATH=. python scripts/init_db.py
 
+db-upgrade:
+	cd backend && PYTHONPATH=. alembic upgrade head
+
+db-downgrade:
+	cd backend && PYTHONPATH=. alembic downgrade -1
+
 lint:
 	ruff check backend
 	npm --prefix frontend run lint
 
 test:
-	cd backend && pytest tests
+	cd backend && rm -f test.db && DATABASE_URL=sqlite:///./test.db pytest tests
 	npm --prefix frontend run build
 
 run-backend:

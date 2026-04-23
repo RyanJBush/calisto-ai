@@ -35,6 +35,7 @@ Calisto AI is a production-style monorepo for an enterprise Retrieval-Augmented 
 ```bash
 make bootstrap
 cp backend/.env.example backend/.env
+make db-upgrade
 make init
 make run-backend
 make run-frontend
@@ -64,6 +65,13 @@ docker compose up --build
 ```bash
 make lint
 make test
+```
+
+## Database Migrations
+
+```bash
+make db-upgrade
+make db-downgrade
 ```
 
 ## Demo Credentials (Seeded)
