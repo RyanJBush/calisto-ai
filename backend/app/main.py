@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,9 +14,21 @@ from app.routers import admin, auth, chat, documents, health
 
 settings = get_settings()
 configure_logging()
-
-app = FastAPI(title=settings.app_name)
 rate_limiter = InMemoryRateLimiter(limit_per_minute=settings.rate_limit_per_minute)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    db = SessionLocal()
+    try:
+        seed_demo_data(db)
+        yield
+    finally:
+        db.close()
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,17 +47,6 @@ async def metrics_middleware(request: Request, call_next):
 
     metrics_store.increment()
     return await log_requests(request, call_next)
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    init_db()
-    db = SessionLocal()
-    try:
-        seed_demo_data(db)
-    finally:
-        db.close()
-
 
 app.include_router(health.router)
 app.include_router(auth.router)

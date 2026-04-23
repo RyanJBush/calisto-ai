@@ -7,9 +7,10 @@ from sqlalchemy.orm import joinedload
 
 from app.models import Chunk, Document
 from app.services.embedding_service import EmbeddingService
+from app.services.embedding_index_service import embedding_index_service
 from app.services.rerank_service import RerankService, RetrievalCandidate
 from app.services.text_utils import tokenize
-from app.services.vector_store import SearchResult, vector_store
+from app.services.vector_store import SearchResult
 
 
 @dataclass
@@ -34,7 +35,16 @@ class RetrievalService:
     ) -> list[tuple[Chunk, SearchResult]]:
         filters = filters or RetrievalFilters()
         query_vector = self.embedding_service.embed_text(query)
-        vector_matches = vector_store.search(query_vector, top_k=max(top_k * 4, 8))
+        vector_matches = [
+            SearchResult(item_id=chunk_id, score=score, vector_score=score)
+            for chunk_id, score in embedding_index_service.search(
+                db=self.db,
+                query_vector=query_vector,
+                organization_id=organization_id,
+                filters=filters,
+                top_k=max(top_k * 4, 8),
+            )
+        ]
         keyword_scores = self._keyword_search(
             query,
             organization_id,
