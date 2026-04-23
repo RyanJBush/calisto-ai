@@ -61,6 +61,9 @@ docker compose up --build
 - `POST /api/documents/{id}/retry-ingestion`
 - `POST /api/chat/query`
 - `GET /api/chat/history`
+- `GET /api/admin/workspace`
+- `PUT /api/admin/workspace`
+- `GET /api/admin/users`
 
 ## Testing and Linting
 

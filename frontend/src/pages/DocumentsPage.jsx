@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 
 import {
   createCollection,
+  fetchAdminUsers,
+  fetchDocumentIngestionRuns,
+  grantDocumentAccess,
+  listCollections,
+  listDocuments,
+  revokeDocumentAccess,
   fetchDocumentIngestionRuns,
   listCollections,
   listDocuments,
@@ -22,6 +28,9 @@ export default function DocumentsPage() {
   const [file, setFile] = useState(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState(null);
   const [ingestionRuns, setIngestionRuns] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [accessDocId, setAccessDocId] = useState("");
+  const [accessUserId, setAccessUserId] = useState("");
 
   async function loadDocuments() {
     const data = await listDocuments();
@@ -36,6 +45,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     loadDocuments().catch(() => setStatus("Unable to load documents."));
     loadCollections().catch(() => setCollections([]));
+    fetchAdminUsers().then(setUsers).catch(() => setUsers([]));
   }, []);
 
   async function onUpload(event) {
@@ -113,6 +123,29 @@ export default function DocumentsPage() {
     }
   }
 
+  async function onGrantAccess(event) {
+    event.preventDefault();
+    if (!accessDocId || !accessUserId) {
+      setStatus("Select both document and user.");
+      return;
+    }
+    try {
+      await grantDocumentAccess(Number(accessDocId), { user_id: Number(accessUserId), permission: "read" });
+      setStatus("Access granted.");
+    } catch {
+      setStatus("Unable to grant access. Admin role required.");
+    }
+  }
+
+  async function onRevokeAccess(documentId, userId) {
+    try {
+      await revokeDocumentAccess(documentId, userId);
+      setStatus("Access revoked.");
+    } catch {
+      setStatus("Unable to revoke access.");
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <form onSubmit={onUpload} className="rounded-lg border border-slate-200 bg-white p-5">
@@ -174,6 +207,33 @@ export default function DocumentsPage() {
             </button>
           </div>
         </div>
+
+        {users.length > 0 && (
+          <div className="mt-4 border-t pt-4">
+            <label className="mb-2 block text-sm text-slate-700">Grant Viewer Access</label>
+            <form onSubmit={onGrantAccess} className="grid gap-2 md:grid-cols-3">
+              <select value={accessDocId} onChange={(event) => setAccessDocId(event.target.value)} className="rounded border px-2 py-1 text-sm">
+                <option value="">Select document</option>
+                {documents.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.title}
+                  </option>
+                ))}
+              </select>
+              <select value={accessUserId} onChange={(event) => setAccessUserId(event.target.value)} className="rounded border px-2 py-1 text-sm">
+                <option value="">Select user</option>
+                {users
+                  .filter((user) => user.role === "viewer")
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name} ({user.email})
+                    </option>
+                  ))}
+              </select>
+              <button className="rounded border border-slate-300 px-3 py-2 text-sm">Grant</button>
+            </form>
+          </div>
+        )}
       </form>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -202,6 +262,23 @@ export default function DocumentsPage() {
               >
                 Retry ingestion
               </button>
+              {users.length > 0 && (
+                <div className="mt-2">
+                  {users
+                    .filter((user) => user.role === "viewer")
+                    .slice(0, 2)
+                    .map((viewer) => (
+                      <button
+                        key={`${doc.id}-${viewer.id}`}
+                        type="button"
+                        onClick={() => onRevokeAccess(doc.id, viewer.id)}
+                        className="mr-2 rounded border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                      >
+                        Revoke {viewer.full_name}
+                      </button>
+                    ))}
+                </div>
+              )}
               {selectedDocumentId === doc.id && (
                 <ul className="mt-2 space-y-1 rounded bg-slate-50 p-2 text-xs text-slate-600">
                   {ingestionRuns.map((run) => (
