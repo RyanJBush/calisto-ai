@@ -24,6 +24,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearToken();
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export async function login(email, password) {
   const { data } = await api.post("/api/auth/login", { email, password });
   setToken(data.access_token);
@@ -98,8 +111,8 @@ export async function fetchAdminIngestionBreakdown() {
   return data;
 }
 
-export async function fetchAdminAuditLogs() {
-  const { data } = await api.get("/api/admin/audit-logs");
+export async function fetchAdminAuditLogs(params = {}) {
+  const { data } = await api.get("/api/admin/audit-logs", { params });
   return data;
 }
 
@@ -118,6 +131,21 @@ export async function fetchAdminCollectionSummary() {
   return data;
 }
 
+export async function fetchAdminUsers() {
+  const { data } = await api.get("/api/admin/users");
+  return data;
+}
+
+export async function fetchWorkspaceSettings() {
+  const { data } = await api.get("/api/admin/workspace");
+  return data;
+}
+
+export async function updateWorkspaceSettings(payload) {
+  const { data } = await api.put("/api/admin/workspace", payload);
+  return data;
+}
+
 export async function fetchDocumentIngestionRuns(documentId) {
   const { data } = await api.get(`/api/documents/${documentId}/ingestion-runs`);
   return data;
@@ -126,4 +154,13 @@ export async function fetchDocumentIngestionRuns(documentId) {
 export async function retryDocumentIngestion(documentId) {
   const { data } = await api.post(`/api/documents/${documentId}/retry-ingestion`);
   return data;
+}
+
+export async function grantDocumentAccess(documentId, payload) {
+  const { data } = await api.post(`/api/documents/${documentId}/access`, payload);
+  return data;
+}
+
+export async function revokeDocumentAccess(documentId, userId) {
+  await api.delete(`/api/documents/${documentId}/access/${userId}`);
 }

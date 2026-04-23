@@ -57,3 +57,25 @@ class CollectionSummaryResponse(BaseModel):
     collection_id: int
     name: str
     documents_count: int
+
+
+class WorkspaceSettingsResponse(BaseModel):
+    organization_id: int
+    organization_name: str
+    rate_limit_per_minute: int
+    llm_provider: str
+    llm_model: str
+
+
+class WorkspaceSettingsUpdateRequest(BaseModel):
+    organization_name: str
+
+
+class AdminUserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: str
+
+    class Config:
+        from_attributes = True

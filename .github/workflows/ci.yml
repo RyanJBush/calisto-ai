@@ -27,6 +27,8 @@ jobs:
         run: ruff check .
       - name: Test backend
         run: pytest tests
+      - name: Smoke check backend
+        run: PYTHONPATH=. python scripts/smoke_check.py
 
   frontend:
     runs-on: ubuntu-latest

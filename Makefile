@@ -1,3 +1,4 @@
+.PHONY: bootstrap init db-upgrade db-downgrade demo-seed smoke lint test run-backend run-frontend
 .PHONY: bootstrap init db-upgrade db-downgrade lint test run-backend run-frontend
 .PHONY: bootstrap init lint test run-backend run-frontend
 
@@ -14,6 +15,12 @@ db-upgrade:
 
 db-downgrade:
 	cd backend && PYTHONPATH=. alembic downgrade -1
+
+demo-seed:
+	cd backend && PYTHONPATH=. python scripts/seed_demo_corpus.py
+
+smoke:
+	cd backend && PYTHONPATH=. python scripts/smoke_check.py
 
 lint:
 	ruff check backend

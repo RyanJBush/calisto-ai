@@ -216,6 +216,8 @@ def test_admin_analytics_summary_authorization() -> None:
         audit_logs = client.get("/api/admin/audit-logs", headers=admin_headers)
         assert audit_logs.status_code == 200
         assert isinstance(audit_logs.json(), list)
+        filtered_audit_logs = client.get("/api/admin/audit-logs?action=chat_query", headers=admin_headers)
+        assert filtered_audit_logs.status_code == 200
 
         feedback_summary = client.get("/api/admin/analytics/feedback-summary", headers=admin_headers)
         assert feedback_summary.status_code == 200
@@ -228,6 +230,21 @@ def test_admin_analytics_summary_authorization() -> None:
         collections = client.get("/api/admin/analytics/collections", headers=admin_headers)
         assert collections.status_code == 200
         assert isinstance(collections.json(), list)
+
+        workspace = client.get("/api/admin/workspace", headers=admin_headers)
+        assert workspace.status_code == 200
+        assert "organization_name" in workspace.json()
+        updated_workspace = client.put(
+            "/api/admin/workspace",
+            headers=admin_headers,
+            json={"organization_name": "Calisto Demo Org Updated"},
+        )
+        assert updated_workspace.status_code == 200
+        assert updated_workspace.json()["organization_name"] == "Calisto Demo Org Updated"
+
+        users = client.get("/api/admin/users", headers=admin_headers)
+        assert users.status_code == 200
+        assert isinstance(users.json(), list)
 
 
 def test_upload_file_endpoint_with_plain_text() -> None:
