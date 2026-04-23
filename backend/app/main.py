@@ -16,9 +16,6 @@ settings = get_settings()
 configure_logging()
 rate_limiter = InMemoryRateLimiter(limit_per_minute=settings.rate_limit_per_minute)
 
-if settings.environment.lower() == "production" and settings.jwt_secret in {"dev-secret", "change-me"}:
-    raise RuntimeError("JWT_SECRET must be explicitly set in production.")
-
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):

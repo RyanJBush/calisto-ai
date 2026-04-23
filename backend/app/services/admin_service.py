@@ -1,25 +1,12 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.models import (
-    AuditLog,
-    ChatFeedback,
-    ChatMessage,
-    ChatSession,
-    Chunk,
-    Collection,
-    Document,
-    IngestionRun,
-    Organization,
-    User,
-)
+from app.models import AuditLog, ChatFeedback, ChatMessage, ChatSession, Chunk, Collection, Document, IngestionRun, User
 
 
 class AdminService:
     def __init__(self, db: Session) -> None:
         self.db = db
-        self.settings = get_settings()
 
     def get_analytics_summary(self, organization_id: int) -> dict[str, int]:
         total_documents = (
@@ -115,19 +102,14 @@ class AdminService:
         )
         return [{"status": row.status, "count": int(row.count)} for row in rows]
 
-    def get_audit_logs(
-        self,
-        organization_id: int,
-        limit: int = 50,
-        action: str | None = None,
-        resource_type: str | None = None,
-    ) -> list[AuditLog]:
-        query = self.db.query(AuditLog).filter(AuditLog.organization_id == organization_id)
-        if action:
-            query = query.filter(AuditLog.action == action)
-        if resource_type:
-            query = query.filter(AuditLog.resource_type == resource_type)
-        return query.order_by(AuditLog.created_at.desc()).limit(limit).all()
+    def get_audit_logs(self, organization_id: int, limit: int = 50) -> list[AuditLog]:
+        return (
+            self.db.query(AuditLog)
+            .filter(AuditLog.organization_id == organization_id)
+            .order_by(AuditLog.created_at.desc())
+            .limit(limit)
+            .all()
+        )
 
     def get_feedback_summary(self, organization_id: int) -> dict[str, int | float]:
         base_query = (
@@ -167,30 +149,3 @@ class AdminService:
             }
             for row in rows
         ]
-
-    def get_workspace_settings(self, organization_id: int) -> dict[str, int | str]:
-        org = self.db.get(Organization, organization_id)
-        organization_name = org.name if org else "Unknown"
-        return {
-            "organization_id": organization_id,
-            "organization_name": organization_name,
-            "rate_limit_per_minute": self.settings.rate_limit_per_minute,
-            "llm_provider": self.settings.llm_provider,
-            "llm_model": self.settings.llm_model,
-        }
-
-    def update_workspace_name(self, organization_id: int, organization_name: str) -> dict[str, int | str]:
-        org = self.db.get(Organization, organization_id)
-        if org is None:
-            raise ValueError("Organization not found.")
-        org.name = organization_name.strip()
-        self.db.commit()
-        return self.get_workspace_settings(organization_id)
-
-    def list_users(self, organization_id: int) -> list[User]:
-        return (
-            self.db.query(User)
-            .filter(User.organization_id == organization_id)
-            .order_by(User.role.asc(), User.email.asc())
-            .all()
-        )

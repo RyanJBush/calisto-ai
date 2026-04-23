@@ -37,7 +37,6 @@ make bootstrap
 cp backend/.env.example backend/.env
 make db-upgrade
 make init
-make demo-seed
 make run-backend
 make run-frontend
 ```
@@ -62,16 +61,12 @@ docker compose up --build
 - `POST /api/documents/{id}/retry-ingestion`
 - `POST /api/chat/query`
 - `GET /api/chat/history`
-- `GET /api/admin/workspace`
-- `PUT /api/admin/workspace`
-- `GET /api/admin/users`
 
 ## Testing and Linting
 
 ```bash
 make lint
 make test
-make smoke
 ```
 
 ## Database Migrations
@@ -94,9 +89,6 @@ See:
 - `/docs/ARCHITECTURE.md`
 - `/docs/PORTS.md`
 - `/docs/STYLEGUIDE.md`
-- `/docs/DEMO_RUNBOOK.md`
-- `/docs/TROUBLESHOOTING.md`
-- `/docs/DEPLOYMENT.md`
 
 ## Roadmap
 
