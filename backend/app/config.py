@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     jwt_exp_minutes: int = 60
     rate_limit_per_minute: int = 300
     cors_origins: List[str] = ["http://localhost:5173"]
+    llm_provider: str = "heuristic"
+    llm_model: str = "calisto-grounded-v1"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

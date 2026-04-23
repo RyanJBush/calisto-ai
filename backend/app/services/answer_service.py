@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 
 from app.schemas.chat import Citation
+from app.services.llm_service import llm_service
 
 
 @dataclass
 class AnswerResult:
     text: str
     insufficient_evidence: bool
+    answer_mode: str
+    evidence_summary: list[str]
 
 
 class AnswerService:
@@ -15,6 +18,8 @@ class AnswerService:
             return AnswerResult(
                 text=f"No indexed content matched '{query}'. Upload documents to improve answers.",
                 insufficient_evidence=True,
+                answer_mode="insufficient_evidence",
+                evidence_summary=[],
             )
 
         average_score = sum(citation.retrieval_score for citation in citations) / max(1, len(citations))
@@ -25,13 +30,16 @@ class AnswerService:
                     "Try rephrasing your question or uploading more relevant sources."
                 ),
                 insufficient_evidence=True,
+                answer_mode="insufficient_evidence",
+                evidence_summary=[],
             )
-
+        generation = llm_service.generate_grounded_answer(query, citations)
         sources = ", ".join(sorted({citation.document_title for citation in citations}))
         return AnswerResult(
             text=(
-                f"Based on the retrieved knowledge base excerpts, here is a grounded response to '{query}'. "
-                f"Sources consulted: {sources}."
+                f"{generation.text}\n\nSources consulted: {sources}."
             ),
             insufficient_evidence=False,
+            answer_mode=generation.mode,
+            evidence_summary=generation.evidence_summary,
         )

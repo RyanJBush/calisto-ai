@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from app.db.session import SessionLocal
 from app.models import Chunk, Document, IngestionRun
 from app.services.embedding_service import EmbeddingService
+from app.services.embedding_index_service import embedding_index_service
 from app.services.ingestion_service import IngestionService
 from app.services.security_text_service import SecurityTextService
-from app.services.vector_store import vector_store
 
 
 class IngestionJobService:
@@ -38,6 +38,8 @@ class IngestionJobService:
                 db.commit()
 
                 try:
+                    existing_chunk_ids = [row.id for row in db.query(Chunk.id).filter(Chunk.document_id == document_id).all()]
+                    embedding_index_service.delete_embeddings_for_chunk_ids(db, existing_chunk_ids)
                     db.query(Chunk).filter(Chunk.document_id == document_id).delete()
                     db.commit()
 
@@ -49,7 +51,12 @@ class IngestionJobService:
                     db.flush()
 
                     for chunk in chunks:
-                        vector_store.add(chunk.id, embedding_service.embed_text(chunk.content))
+                        embedding_index_service.upsert_chunk_embedding(
+                            db,
+                            chunk.id,
+                            embedding_service.embed_text(chunk.content),
+                        )
+                    db.commit()
 
                     ingestion_run.status = "completed"
                     ingestion_run.completed_at = datetime.now(timezone.utc)

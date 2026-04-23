@@ -32,6 +32,8 @@ class ChatQueryResponse(BaseModel):
     session_id: int
     assistant_message_id: int
     answer: str
+    answer_mode: str
+    evidence_summary: list[str] = []
     rewritten_query: str
     confidence_score: float
     citation_coverage: float

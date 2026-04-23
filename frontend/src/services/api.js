@@ -45,6 +45,19 @@ export async function uploadDocument(payload) {
   return data;
 }
 
+export async function uploadDocumentFile(payload) {
+  const form = new FormData();
+  form.append("title", payload.title);
+  form.append("file", payload.file);
+  if (payload.source_name) form.append("source_name", payload.source_name);
+  if (payload.redact_pii) form.append("redact_pii", "true");
+  if (payload.collection_id) form.append("collection_id", String(payload.collection_id));
+  const { data } = await api.post("/api/documents/upload-file", form, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  return data;
+}
+
 export async function createCollection(payload) {
   const { data } = await api.post("/api/documents/collections", payload);
   return data;
@@ -107,5 +120,10 @@ export async function fetchAdminCollectionSummary() {
 
 export async function fetchDocumentIngestionRuns(documentId) {
   const { data } = await api.get(`/api/documents/${documentId}/ingestion-runs`);
+  return data;
+}
+
+export async function retryDocumentIngestion(documentId) {
+  const { data } = await api.post(`/api/documents/${documentId}/retry-ingestion`);
   return data;
 }
