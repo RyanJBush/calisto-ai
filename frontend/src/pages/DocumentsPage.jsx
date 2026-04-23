@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 
-import { createCollection, fetchDocumentIngestionRuns, listCollections, listDocuments, uploadDocument } from "../services/api";
+import {
+  createCollection,
+  fetchAdminUsers,
+  fetchDocumentIngestionRuns,
+  grantDocumentAccess,
+  listCollections,
+  listDocuments,
+  revokeDocumentAccess,
+  retryDocumentIngestion,
+  uploadDocument,
+  uploadDocumentFile
+} from "../services/api";
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState([]);
@@ -11,8 +22,12 @@ export default function DocumentsPage() {
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [newCollectionName, setNewCollectionName] = useState("");
   const [status, setStatus] = useState("");
+  const [file, setFile] = useState(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState(null);
   const [ingestionRuns, setIngestionRuns] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [accessDocId, setAccessDocId] = useState("");
+  const [accessUserId, setAccessUserId] = useState("");
 
   async function loadDocuments() {
     const data = await listDocuments();
@@ -27,6 +42,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     loadDocuments().catch(() => setStatus("Unable to load documents."));
     loadCollections().catch(() => setCollections([]));
+    fetchAdminUsers().then(setUsers).catch(() => setUsers([]));
   }, []);
 
   async function onUpload(event) {
@@ -43,6 +59,28 @@ export default function DocumentsPage() {
       await loadDocuments();
     } catch {
       setStatus("Upload failed. Ensure your role has access.");
+    }
+  }
+
+  async function onUploadFile(event) {
+    event.preventDefault();
+    if (!file) {
+      setStatus("Choose a file before uploading.");
+      return;
+    }
+    try {
+      await uploadDocumentFile({
+        title,
+        file,
+        source_name: file.name,
+        redact_pii: redactPii,
+        collection_id: selectedCollectionId ? Number(selectedCollectionId) : null
+      });
+      setStatus("File uploaded successfully.");
+      setFile(null);
+      await loadDocuments();
+    } catch {
+      setStatus("File upload failed.");
     }
   }
 
@@ -68,6 +106,40 @@ export default function DocumentsPage() {
     } catch {
       setSelectedDocumentId(documentId);
       setIngestionRuns([]);
+    }
+  }
+
+  async function onRetryIngestion(documentId) {
+    try {
+      await retryDocumentIngestion(documentId);
+      setStatus("Ingestion retry queued.");
+      await onViewIngestion(documentId);
+      await loadDocuments();
+    } catch {
+      setStatus("Unable to retry ingestion.");
+    }
+  }
+
+  async function onGrantAccess(event) {
+    event.preventDefault();
+    if (!accessDocId || !accessUserId) {
+      setStatus("Select both document and user.");
+      return;
+    }
+    try {
+      await grantDocumentAccess(Number(accessDocId), { user_id: Number(accessUserId), permission: "read" });
+      setStatus("Access granted.");
+    } catch {
+      setStatus("Unable to grant access. Admin role required.");
+    }
+  }
+
+  async function onRevokeAccess(documentId, userId) {
+    try {
+      await revokeDocumentAccess(documentId, userId);
+      setStatus("Access revoked.");
+    } catch {
+      setStatus("Unable to revoke access.");
     }
   }
 
@@ -105,6 +177,20 @@ export default function DocumentsPage() {
         {status && <p className="mt-3 text-sm text-slate-600">{status}</p>}
 
         <div className="mt-4 border-t pt-4">
+          <label className="mb-2 block text-sm text-slate-700">Upload File (TXT/MD/JSON/PDF)</label>
+          <div className="space-y-2">
+            <input
+              type="file"
+              onChange={(event) => setFile(event.target.files?.[0] || null)}
+              className="w-full rounded-md border px-3 py-2 text-sm"
+            />
+            <button type="button" onClick={onUploadFile} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+              Upload File
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 border-t pt-4">
           <label className="mb-2 block text-sm text-slate-700">Create Collection</label>
           <div className="flex gap-2">
             <input
@@ -118,6 +204,33 @@ export default function DocumentsPage() {
             </button>
           </div>
         </div>
+
+        {users.length > 0 && (
+          <div className="mt-4 border-t pt-4">
+            <label className="mb-2 block text-sm text-slate-700">Grant Viewer Access</label>
+            <form onSubmit={onGrantAccess} className="grid gap-2 md:grid-cols-3">
+              <select value={accessDocId} onChange={(event) => setAccessDocId(event.target.value)} className="rounded border px-2 py-1 text-sm">
+                <option value="">Select document</option>
+                {documents.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.title}
+                  </option>
+                ))}
+              </select>
+              <select value={accessUserId} onChange={(event) => setAccessUserId(event.target.value)} className="rounded border px-2 py-1 text-sm">
+                <option value="">Select user</option>
+                {users
+                  .filter((user) => user.role === "viewer")
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name} ({user.email})
+                    </option>
+                  ))}
+              </select>
+              <button className="rounded border border-slate-300 px-3 py-2 text-sm">Grant</button>
+            </form>
+          </div>
+        )}
       </form>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -139,6 +252,30 @@ export default function DocumentsPage() {
               >
                 View ingestion timeline
               </button>
+              <button
+                type="button"
+                onClick={() => onRetryIngestion(doc.id)}
+                className="ml-2 mt-2 rounded border border-amber-200 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50"
+              >
+                Retry ingestion
+              </button>
+              {users.length > 0 && (
+                <div className="mt-2">
+                  {users
+                    .filter((user) => user.role === "viewer")
+                    .slice(0, 2)
+                    .map((viewer) => (
+                      <button
+                        key={`${doc.id}-${viewer.id}`}
+                        type="button"
+                        onClick={() => onRevokeAccess(doc.id, viewer.id)}
+                        className="mr-2 rounded border border-rose-200 px-2 py-1 text-xs text-rose-700 hover:bg-rose-50"
+                      >
+                        Revoke {viewer.full_name}
+                      </button>
+                    ))}
+                </div>
+              )}
               {selectedDocumentId === doc.id && (
                 <ul className="mt-2 space-y-1 rounded bg-slate-50 p-2 text-xs text-slate-600">
                   {ingestionRuns.map((run) => (
