@@ -42,7 +42,7 @@ class ChatService:
         session_id: int | None,
         filters: QueryFilters | None = None,
         grounded_mode: bool = True,
-    ) -> tuple[ChatSession, int, str, list[Citation], bool, float, float, str, dict[str, float]]:
+    ) -> tuple[ChatSession, int, str, str, list[str], list[Citation], bool, float, float, str, dict[str, float]]:
         session = self._get_or_create_session(user, session_id)
         total_start = time.perf_counter()
         rewrite_start = time.perf_counter()
@@ -117,6 +117,8 @@ class ChatService:
             session,
             assistant_message.id,
             answer_result.text,
+            answer_result.answer_mode,
+            answer_result.evidence_summary,
             citations,
             answer_result.insufficient_evidence,
             confidence_score,

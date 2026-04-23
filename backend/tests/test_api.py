@@ -90,6 +90,8 @@ def test_document_chat_flow_with_citations() -> None:
         assert payload["confidence_score"] >= 0
         assert payload["citation_coverage"] >= 0
         assert payload["rewritten_query"]
+        assert payload["answer_mode"]
+        assert isinstance(payload["evidence_summary"], list)
         assert payload["latency_breakdown_ms"]["total"] >= 0
         assert "source_preview" in payload["citations"][0]
         assert payload["citations"][0]["highlight_end"] > payload["citations"][0]["highlight_start"]

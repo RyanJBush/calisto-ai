@@ -14,10 +14,13 @@ export default function ChatPage() {
   const [rewrittenQuery, setRewrittenQuery] = useState("");
   const [latencyBreakdown, setLatencyBreakdown] = useState(null);
   const [assistantMessageId, setAssistantMessageId] = useState(null);
+  const [answerMode, setAnswerMode] = useState("");
+  const [evidenceSummary, setEvidenceSummary] = useState([]);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [historyFilter, setHistoryFilter] = useState("");
   const [collectionFilterId, setCollectionFilterId] = useState("");
+  const [citationSort, setCitationSort] = useState("relevance");
 
   async function loadHistory() {
     const data = await fetchHistory();
@@ -34,9 +37,12 @@ export default function ChatPage() {
       query,
       filters: collectionFilterId ? { collection_id: Number(collectionFilterId) } : undefined
     });
+    const orderedCitations = [...response.citations].sort((left, right) => right.retrieval_score - left.retrieval_score);
     setAnswer(response.answer);
-    setCitations(response.citations);
-    setSelectedCitation(response.citations[0] || null);
+    setCitations(orderedCitations);
+    setSelectedCitation(orderedCitations[0] || null);
+    setAnswerMode(response.answer_mode);
+    setEvidenceSummary(response.evidence_summary || []);
     setConfidenceScore(response.confidence_score);
     setCitationCoverage(response.citation_coverage);
     setInsufficientEvidence(response.insufficient_evidence);
@@ -47,6 +53,13 @@ export default function ChatPage() {
     setFeedbackComment("");
     await loadHistory();
   }
+
+  const sortedCitations = [...citations].sort((left, right) => {
+    if (citationSort === "title") {
+      return left.document_title.localeCompare(right.document_title);
+    }
+    return right.retrieval_score - left.retrieval_score;
+  });
 
   async function onFeedback(rating) {
     if (!assistantMessageId) {
@@ -116,6 +129,7 @@ export default function ChatPage() {
               <p>Rewritten Query: {rewrittenQuery}</p>
               <p>Confidence: {((confidenceScore || 0) * 100).toFixed(0)}%</p>
               <p>Citation Coverage: {((citationCoverage || 0) * 100).toFixed(0)}%</p>
+              <p>Answer Mode: {answerMode || "n/a"}</p>
               {latencyBreakdown && (
                 <p>
                   Latency (ms): rewrite {latencyBreakdown.rewrite}, retrieval {latencyBreakdown.retrieval}, answer{" "}
@@ -124,6 +138,16 @@ export default function ChatPage() {
               )}
               {insufficientEvidence && <p className="font-medium text-amber-600">Insufficient evidence fallback active.</p>}
             </div>
+            {evidenceSummary.length > 0 && (
+              <div className="mt-3 rounded border border-slate-200 bg-slate-50 p-2">
+                <p className="text-xs font-semibold uppercase text-slate-500">Top Evidence</p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-slate-700">
+                  {evidenceSummary.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
@@ -148,8 +172,18 @@ export default function ChatPage() {
             </div>
             {feedbackStatus && <p className="mt-1 text-xs text-slate-500">{feedbackStatus}</p>}
             <h4 className="mt-4 text-sm font-semibold uppercase text-slate-500">Citations</h4>
+            <div className="mt-2">
+              <select
+                value={citationSort}
+                onChange={(event) => setCitationSort(event.target.value)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs"
+              >
+                <option value="relevance">Sort by relevance</option>
+                <option value="title">Sort by title</option>
+              </select>
+            </div>
             <ul className="mt-2 space-y-2">
-              {citations.map((citation) => (
+              {sortedCitations.map((citation) => (
                 <li key={citation.chunk_id}>
                   <button
                     type="button"
