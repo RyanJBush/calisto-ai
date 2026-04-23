@@ -8,6 +8,9 @@ import {
   listCollections,
   listDocuments,
   revokeDocumentAccess,
+  fetchDocumentIngestionRuns,
+  listCollections,
+  listDocuments,
   retryDocumentIngestion,
   uploadDocument,
   uploadDocumentFile
