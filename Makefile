@@ -1,4 +1,6 @@
 .PHONY: bootstrap init db-upgrade db-downgrade demo-seed smoke lint test run-backend run-frontend
+.PHONY: bootstrap init db-upgrade db-downgrade lint test run-backend run-frontend
+.PHONY: bootstrap init lint test run-backend run-frontend
 
 bootstrap:
 	python -m pip install --upgrade pip
