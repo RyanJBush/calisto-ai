@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, require_roles
@@ -15,7 +15,6 @@ from app.schemas.documents import (
     IngestionRunResponse,
 )
 from app.services.document_service import DocumentService
-from app.services.file_parser_service import file_parser_service
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -31,36 +30,6 @@ def upload_document(
         document = service.upload_document(payload, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
-    return DocumentResponse.model_validate(document)
-
-
-@router.post("/upload-file", response_model=DocumentResponse)
-async def upload_document_file(
-    title: str = Form(...),
-    file: UploadFile = File(...),
-    source_name: str | None = Form(default=None),
-    redact_pii: bool = Form(default=False),
-    collection_id: int | None = Form(default=None),
-    db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "member")),
-) -> DocumentResponse:
-    payload = await file.read()
-    try:
-        content = file_parser_service.extract_text(
-            filename=file.filename or title,
-            content_type=file.content_type,
-            payload=payload,
-        )
-        document = DocumentService(db).upload_document_content(
-            title=title,
-            content=content,
-            source_name=source_name or file.filename,
-            redact_pii=redact_pii,
-            collection_id=collection_id,
-            user=user,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return DocumentResponse.model_validate(document)
 
 
@@ -154,17 +123,3 @@ def revoke_document_access(
         service.revoke_document_access(user.organization_id, document_id, target_user_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-
-@router.post("/{document_id}/retry-ingestion", response_model=IngestionRunResponse)
-def retry_ingestion(
-    document_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(require_roles("admin", "member")),
-) -> IngestionRunResponse:
-    service = DocumentService(db)
-    try:
-        run = service.retry_ingestion(document_id=document_id, organization_id=user.organization_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    return IngestionRunResponse.model_validate(run)

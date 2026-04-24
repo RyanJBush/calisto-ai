@@ -228,34 +228,3 @@ def test_admin_analytics_summary_authorization() -> None:
         collections = client.get("/api/admin/analytics/collections", headers=admin_headers)
         assert collections.status_code == 200
         assert isinstance(collections.json(), list)
-
-
-def test_upload_file_endpoint_with_plain_text() -> None:
-    headers = auth_header("member@calisto.ai")
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/documents/upload-file",
-            headers=headers,
-            data={"title": "File Upload Doc", "redact_pii": "false"},
-            files={"file": ("notes.txt", b"File endpoint content for ingestion.", "text/plain")},
-        )
-        assert response.status_code == 200
-        assert response.json()["title"] == "File Upload Doc"
-        assert response.json()["source_name"] == "notes.txt"
-
-
-def test_retry_ingestion_endpoint() -> None:
-    headers = auth_header("member@calisto.ai")
-    with TestClient(app) as client:
-        upload = client.post(
-            "/api/documents/upload",
-            headers=headers,
-            json={"title": "Retry Doc", "content": "retry ingestion body", "source_name": "retry.txt"},
-        )
-        assert upload.status_code == 200
-        document_id = upload.json()["id"]
-
-        retry = client.post(f"/api/documents/{document_id}/retry-ingestion", headers=headers)
-        assert retry.status_code == 200
-        assert retry.json()["document_id"] == document_id
-        assert retry.json()["status"] in {"queued", "processing", "completed"}

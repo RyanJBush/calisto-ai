@@ -55,10 +55,8 @@ docker compose up --build
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/documents/upload`
-- `POST /api/documents/upload-file` (multipart TXT/MD/JSON/PDF)
 - `GET /api/documents`
 - `GET /api/documents/{id}`
-- `POST /api/documents/{id}/retry-ingestion`
 - `POST /api/chat/query`
 - `GET /api/chat/history`
 
