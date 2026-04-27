@@ -172,7 +172,7 @@ def test_auth_service_authenticate_success(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr("app.services.auth_service.verify_password", lambda plain, hashed: True)
     monkeypatch.setattr("app.services.auth_service.create_access_token", lambda subject: f"token-{subject}")
 
-    token = AuthService(db).authenticate("member@calisto.ai", "password123")
+    token = AuthService(db).authenticate("user@example.com", "password123")
 
     assert token == "token-42"
 
@@ -273,11 +273,12 @@ def test_benchmark_service_run_reports_pass_and_average_scores(monkeypatch: pyte
     monkeypatch.setattr(service.retrieval_service, "retrieve", fake_retrieve)
 
     result = service.run(organization_id=1)
+    expected_average_score = round((1.0 + (2 / 3)) / 2, 4)
 
     assert result["cases_total"] == 2
     assert result["cases_passed"] == 2
     assert result["pass_rate"] == 1.0
-    assert result["average_case_score"] == pytest.approx(0.8333, rel=1e-4)
+    assert result["average_case_score"] == pytest.approx(expected_average_score, rel=1e-4)
 
 
 def test_benchmark_service_run_reports_zero_when_no_terms_match(monkeypatch: pytest.MonkeyPatch) -> None:
