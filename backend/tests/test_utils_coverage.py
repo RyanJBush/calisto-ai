@@ -1,9 +1,12 @@
 from collections.abc import Iterator
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 from jose import jwt
 
+from app.core.dependencies import get_current_user, require_roles
 from app.core.rate_limit import InMemoryRateLimiter
 from app.core.security import (
     create_access_token,
@@ -12,10 +15,12 @@ from app.core.security import (
     settings,
     verify_password,
 )
+from app.services.auth_service import AuthService
+from app.services.benchmark_service import BenchmarkService
+from app.services.ingestion_service import IngestionService
 from app.services.security_text_service import SecurityTextService
 from app.services.text_utils import tokenize
 from app.services.answer_service import AnswerService
-from app.services.file_parser_service import FileParserService
 from app.services.llm_service import LLMGeneration
 from app.services.query_rewrite_service import QueryRewriteService
 from app.services.rerank_service import RerankService, RetrievalCandidate
@@ -139,48 +144,155 @@ def test_query_rewrite_returns_original_when_only_whitespace() -> None:
     assert service.rewrite("   ") == "   "
 
 
-def test_file_parser_extracts_plain_text_from_mime_type() -> None:
-    parser = FileParserService()
+def test_ingestion_service_chunks_with_overlap() -> None:
+    service = IngestionService()
+    document = SimpleNamespace(id=7, content="abcdefghij")
 
-    extracted = parser.extract_text(
-        filename="ignored.bin",
-        content_type="text/plain",
-        payload=b"  hello world\n",
+    chunks = service.chunk_document(document, chunk_size=5, overlap=2)
+
+    assert [chunk.content for chunk in chunks] == ["abcde", "defgh", "ghij"]
+    assert [chunk.chunk_index for chunk in chunks] == [0, 1, 2]
+
+
+def test_ingestion_service_skips_empty_chunks() -> None:
+    service = IngestionService()
+    document = SimpleNamespace(id=8, content="   \n  ")
+
+    chunks = service.chunk_document(document, chunk_size=4, overlap=2)
+
+    assert chunks == []
+
+
+def test_auth_service_authenticate_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = SimpleNamespace(
+        id=42,
+        password_hash="hash",
     )
+    monkeypatch.setattr("app.services.auth_service.verify_password", lambda plain, hashed: True)
+    monkeypatch.setattr("app.services.auth_service.create_access_token", lambda subject: f"token-{subject}")
 
-    assert extracted == "hello world"
+    token = AuthService(db).authenticate("user@example.com", "password123")
+
+    assert token == "token-42"
 
 
-def test_file_parser_extracts_plain_text_from_filename_extension() -> None:
-    parser = FileParserService()
+def test_auth_service_authenticate_rejects_missing_user() -> None:
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
 
-    extracted = parser.extract_text(
-        filename="doc.md",
-        content_type=None,
-        payload=b"# title",
+    assert AuthService(db).authenticate("missing@calisto.ai", "password123") is None
+
+
+def test_auth_service_authenticate_rejects_invalid_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = SimpleNamespace(
+        id=5,
+        password_hash="hash",
     )
+    monkeypatch.setattr("app.services.auth_service.verify_password", lambda plain, hashed: False)
 
-    assert extracted == "# title"
-
-
-def test_file_parser_routes_pdf_payload_to_pdf_extractor(monkeypatch: pytest.MonkeyPatch) -> None:
-    parser = FileParserService()
-    monkeypatch.setattr(parser, "_extract_pdf_text", lambda payload: "PDF content")
-
-    extracted = parser.extract_text(
-        filename="report.pdf",
-        content_type="application/pdf",
-        payload=b"%PDF-1.7 fake",
-    )
-
-    assert extracted == "PDF content"
+    assert AuthService(db).authenticate("member@calisto.ai", "wrong-password") is None
 
 
-def test_file_parser_rejects_unsupported_types() -> None:
-    parser = FileParserService()
+def test_auth_service_get_user_from_token_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = MagicMock()
+    expected_user = SimpleNamespace(id=21, email="user@example.com")
+    db.get.return_value = expected_user
+    monkeypatch.setattr("app.services.auth_service.decode_access_token", lambda token: "21")
 
-    with pytest.raises(ValueError, match="Unsupported file type"):
-        parser.extract_text(filename="image.png", content_type="image/png", payload=b"png")
+    assert AuthService(db).get_user_from_token("valid-token") == expected_user
+
+
+def test_auth_service_get_user_from_token_rejects_invalid_subject(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = MagicMock()
+    monkeypatch.setattr("app.services.auth_service.decode_access_token", lambda token: "not-an-int")
+
+    assert AuthService(db).get_user_from_token("invalid-token") is None
+
+
+def test_get_current_user_returns_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected_user = SimpleNamespace(id=1, role="member")
+
+    class FakeAuthService:
+        def __init__(self, db: object) -> None:
+            self.db = db
+
+        def get_user_from_token(self, token: str) -> SimpleNamespace | None:
+            return expected_user
+
+    monkeypatch.setattr("app.core.dependencies.AuthService", FakeAuthService)
+
+    assert get_current_user(token="valid-token", db=object()) == expected_user
+
+
+def test_get_current_user_rejects_invalid_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeAuthService:
+        def __init__(self, db: object) -> None:
+            self.db = db
+
+        def get_user_from_token(self, token: str) -> None:
+            return None
+
+    monkeypatch.setattr("app.core.dependencies.AuthService", FakeAuthService)
+
+    with pytest.raises(HTTPException, match="Invalid credentials") as exc_info:
+        get_current_user(token="bad-token", db=object())
+
+    assert exc_info.value.status_code == 401
+
+
+def test_require_roles_allows_case_insensitive_match() -> None:
+    checker = require_roles("admin", "member")
+    user = SimpleNamespace(role="ADMIN")
+
+    assert checker(user=user) == user
+
+
+def test_require_roles_rejects_disallowed_role() -> None:
+    checker = require_roles("admin")
+    user = SimpleNamespace(role="viewer")
+
+    with pytest.raises(HTTPException, match="Insufficient role") as exc_info:
+        checker(user=user)
+
+    assert exc_info.value.status_code == 403
+
+
+def test_benchmark_service_run_reports_pass_and_average_scores(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = BenchmarkService(db=MagicMock())
+
+    def fake_retrieve(question: str, organization_id: int, top_k: int) -> list[tuple[SimpleNamespace, float]]:
+        if "answer trust" in question:
+            return [
+                (SimpleNamespace(content="Grounded citation source"), 0.9),
+                (SimpleNamespace(content="Other"), 0.2),
+            ]
+        return [(SimpleNamespace(content="ingestion and chunking"), 0.8)]
+
+    monkeypatch.setattr(service.retrieval_service, "retrieve", fake_retrieve)
+
+    result = service.run(organization_id=1)
+    first_case_score = 1.0
+    second_case_score = 2 / 3
+    expected_average_score = round((first_case_score + second_case_score) / 2, 4)
+
+    assert result["cases_total"] == 2
+    assert result["cases_passed"] == 2
+    assert result["pass_rate"] == 1.0
+    assert result["average_case_score"] == pytest.approx(expected_average_score, rel=1e-4)
+
+
+def test_benchmark_service_run_reports_zero_when_no_terms_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = BenchmarkService(db=MagicMock())
+    monkeypatch.setattr(service.retrieval_service, "retrieve", lambda question, organization_id, top_k: [])
+
+    result = service.run(organization_id=1)
+
+    assert result["cases_total"] == 2
+    assert result["cases_passed"] == 0
+    assert result["pass_rate"] == 0.0
+    assert result["average_case_score"] == 0.0
 
 
 def test_answer_service_returns_insufficient_evidence_when_no_citations() -> None:
