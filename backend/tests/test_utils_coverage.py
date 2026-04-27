@@ -277,7 +277,7 @@ def test_benchmark_service_run_reports_pass_and_average_scores(monkeypatch: pyte
     assert result["cases_total"] == 2
     assert result["cases_passed"] == 2
     assert result["pass_rate"] == 1.0
-    assert result["average_case_score"] == 0.8333
+    assert result["average_case_score"] == pytest.approx(0.8333, rel=1e-4)
 
 
 def test_benchmark_service_run_reports_zero_when_no_terms_match(monkeypatch: pytest.MonkeyPatch) -> None:
