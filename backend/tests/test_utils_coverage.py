@@ -273,7 +273,9 @@ def test_benchmark_service_run_reports_pass_and_average_scores(monkeypatch: pyte
     monkeypatch.setattr(service.retrieval_service, "retrieve", fake_retrieve)
 
     result = service.run(organization_id=1)
-    expected_average_score = round((1.0 + (2 / 3)) / 2, 4)
+    first_case_score = 1.0
+    second_case_score = 2 / 3
+    expected_average_score = round((first_case_score + second_case_score) / 2, 4)
 
     assert result["cases_total"] == 2
     assert result["cases_passed"] == 2
