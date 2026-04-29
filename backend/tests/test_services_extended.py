@@ -698,7 +698,7 @@ def test_query_rewrite_does_not_append_context_for_unambiguous_query() -> None:
 
 def test_query_rewrite_does_not_double_append_context_suffix() -> None:
     service = QueryRewriteService()
-    query = "What did they decide using available knowledge base context"
+    query = "What did they decide using available knowledge base context?"
 
     rewritten = service.rewrite(query)
 
