@@ -33,14 +33,25 @@ def test_auth_login_and_me() -> None:
         assert me.json()["role"] == "admin"
 
 
+def test_auth_login_rejects_invalid_credentials() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/auth/login",
+            json={"email": "admin@calisto.ai", "password": "wrong-password"},
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid credentials"
+
+
 def test_document_chat_flow_with_citations() -> None:
     headers = auth_header("member@calisto.ai")
 
     with TestClient(app) as client:
+        source_name = f"handbook-{int(time.time() * 1000)}.txt"
         collection = client.post(
             "/api/documents/collections",
             headers=headers,
-            json={"name": "Employee Docs"},
+            json={"name": f"Employee Docs {int(time.time() * 1000)}"},
         )
         assert collection.status_code == 200
 
@@ -50,7 +61,7 @@ def test_document_chat_flow_with_citations() -> None:
             json={
                 "title": "Employee Handbook",
                 "content": "Calisto AI supports citation-based answers and enterprise RBAC policies.",
-                "source_name": "handbook.txt",
+                "source_name": source_name,
                 "collection_id": collection.json()["id"],
             },
         )
@@ -79,7 +90,7 @@ def test_document_chat_flow_with_citations() -> None:
             headers=headers,
             json={
                 "query": "How does Calisto answer questions in handbook?",
-                "filters": {"source_name": "handbook", "collection_id": collection.json()["id"]},
+                "filters": {"source_name": source_name, "collection_id": collection.json()["id"]},
             },
         )
         assert query.status_code == 200
@@ -120,10 +131,12 @@ def test_duplicate_document_detection_and_versioning() -> None:
     headers = auth_header("member@calisto.ai")
 
     with TestClient(app) as client:
+        source_name = f"roadmap-{int(time.time() * 1000)}.md"
+
         first = client.post(
             "/api/documents/upload",
             headers=headers,
-            json={"title": "Roadmap", "content": "Q3 milestones for Calisto", "source_name": "roadmap.md"},
+            json={"title": "Roadmap", "content": "Q3 milestones for Calisto", "source_name": source_name},
         )
         assert first.status_code == 200
         assert first.json()["version"] >= 1
@@ -131,14 +144,14 @@ def test_duplicate_document_detection_and_versioning() -> None:
         duplicate = client.post(
             "/api/documents/upload",
             headers=headers,
-            json={"title": "Roadmap", "content": "Q3 milestones for Calisto", "source_name": "roadmap.md"},
+            json={"title": "Roadmap", "content": "Q3 milestones for Calisto", "source_name": source_name},
         )
         assert duplicate.status_code == 409
 
         second_version = client.post(
             "/api/documents/upload",
             headers=headers,
-            json={"title": "Roadmap", "content": "Q4 milestones for Calisto", "source_name": "roadmap.md"},
+            json={"title": "Roadmap", "content": "Q4 milestones for Calisto", "source_name": source_name},
         )
         assert second_version.status_code == 200
         assert second_version.json()["version"] == first.json()["version"] + 1
@@ -165,7 +178,7 @@ def test_document_access_grants_for_viewer() -> None:
         upload = client.post(
             "/api/documents/upload",
             headers=member_headers,
-            json={"title": "Restricted Doc", "content": "viewer should access after grant", "source_name": "restricted.txt"},
+            json={"title": "Restricted Doc", "content": "viewer should access after grant", "source_name": f"restricted-{int(time.time() * 1000)}.txt"},
         )
         assert upload.status_code == 200
         doc_id = upload.json()["id"]
@@ -184,6 +197,63 @@ def test_document_access_grants_for_viewer() -> None:
         viewer_list_after = client.get("/api/documents", headers=viewer_headers)
         assert viewer_list_after.status_code == 200
         assert any(doc["id"] == doc_id for doc in viewer_list_after.json())
+
+
+def test_admin_can_revoke_document_access_for_viewer() -> None:
+    admin_headers = auth_header("admin@calisto.ai")
+    member_headers = auth_header("member@calisto.ai")
+    viewer_headers = auth_header("viewer@calisto.ai")
+
+    with TestClient(app) as client:
+        upload = client.post(
+            "/api/documents/upload",
+            headers=member_headers,
+            json={
+                "title": "Private Doc",
+                "content": "viewer access should be revoked",
+                "source_name": f"private-{int(time.time() * 1000)}.txt",
+            },
+        )
+        assert upload.status_code == 200
+        doc_id = upload.json()["id"]
+
+        grant = client.post(
+            f"/api/documents/{doc_id}/access",
+            headers=admin_headers,
+            json={"user_id": 3, "permission": "read"},
+        )
+        assert grant.status_code == 200
+
+        visible_before = client.get("/api/documents", headers=viewer_headers)
+        assert any(doc["id"] == doc_id for doc in visible_before.json())
+
+        revoke = client.delete(f"/api/documents/{doc_id}/access/3", headers=admin_headers)
+        assert revoke.status_code == 204
+
+        visible_after = client.get("/api/documents", headers=viewer_headers)
+        assert all(doc["id"] != doc_id for doc in visible_after.json())
+
+
+def test_revoke_document_access_returns_404_when_grant_missing() -> None:
+    admin_headers = auth_header("admin@calisto.ai")
+
+    with TestClient(app) as client:
+        response = client.delete("/api/documents/999999/access/3", headers=admin_headers)
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Document access grant not found."
+
+
+def test_feedback_requires_existing_assistant_message_for_current_user() -> None:
+    member_headers = auth_header("member@calisto.ai")
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/chat/feedback",
+            headers=member_headers,
+            json={"message_id": 999999, "rating": -1, "comment": "not found"},
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Assistant message not found for this user."
 
 
 def test_admin_analytics_summary_authorization() -> None:
