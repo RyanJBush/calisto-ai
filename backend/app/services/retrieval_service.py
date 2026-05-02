@@ -18,6 +18,8 @@ class RetrievalFilters:
     source_name: str | None = None
     document_ids: list[int] | None = None
     collection_id: int | None = None
+    section: str | None = None
+    tags: list[str] | None = None
 
 
 class RetrievalService:
@@ -152,6 +154,12 @@ class RetrievalService:
             query_builder = query_builder.filter(Document.id.in_(filters.document_ids))
         if filters.collection_id:
             query_builder = query_builder.filter(Document.collection_id == filters.collection_id)
+        if filters.section:
+            query_builder = query_builder.filter(Chunk.content.ilike(f"%{filters.section}%"))
+        if filters.tags:
+            tag_clauses = [Chunk.content.ilike(f"%{tag}%") for tag in filters.tags if tag]
+            if tag_clauses:
+                query_builder = query_builder.filter(or_(*tag_clauses))
 
         candidates = (
             query_builder.options(joinedload(Chunk.document))
@@ -202,4 +210,10 @@ class RetrievalService:
             return False
         if filters.collection_id and chunk.document.collection_id != filters.collection_id:
             return False
+        if filters.section and filters.section.lower() not in chunk.content.lower():
+            return False
+        if filters.tags:
+            normalized_tags = [tag.lower() for tag in filters.tags if tag]
+            if normalized_tags and not any(tag in chunk.content.lower() for tag in normalized_tags):
+                return False
         return True
