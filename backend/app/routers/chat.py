@@ -41,6 +41,7 @@ def query(
         payload.session_id,
         payload.filters,
         grounded_mode=payload.grounded_mode,
+        top_k=payload.top_k,
     )
     return ChatQueryResponse(
         session_id=session.id,

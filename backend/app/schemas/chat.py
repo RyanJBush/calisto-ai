@@ -1,12 +1,14 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class QueryFilters(BaseModel):
     source_name: str | None = None
     document_ids: list[int] | None = None
     collection_id: int | None = None
+    section: str | None = None
+    tags: list[str] | None = None
 
 
 class ChatQueryRequest(BaseModel):
@@ -14,6 +16,7 @@ class ChatQueryRequest(BaseModel):
     session_id: int | None = None
     filters: QueryFilters | None = None
     grounded_mode: bool = True
+    top_k: int = Field(default=3, ge=1, le=12)
 
 
 class Citation(BaseModel):
@@ -26,6 +29,8 @@ class Citation(BaseModel):
     highlight_end: int
     highlight_ranges: list[tuple[int, int]] = []
     retrieval_score: float
+    section_label: str | None = None
+    evidence: str = ""
 
 
 class ChatQueryResponse(BaseModel):
