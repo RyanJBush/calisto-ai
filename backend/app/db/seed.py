@@ -86,3 +86,47 @@ def seed_demo_data(db: Session) -> None:
         for chunk in chunks:
             embedding_index_service.upsert_chunk_embedding(db, chunk.id, embedding_service.embed_text(chunk.content))
     db.commit()
+
+    if db.query(Document).first():
+        return
+
+    ingestion_service = IngestionService()
+    embedding_service = EmbeddingService()
+    demo_docs = [
+        (
+            "Employee Handbook",
+            "hr-handbook.md",
+            "# Leave Policy\nEmployees receive 20 paid leave days yearly.\n\n# Remote Work\nManagers approve remote schedules quarterly.",
+        ),
+        (
+            "Security Operations Guide",
+            "security-guide.txt",
+            "Incident severity levels are P1 to P4. P1 incidents require escalation within 15 minutes.",
+        ),
+        (
+            "Support SLA",
+            "support-sla.txt",
+            "Enterprise support response SLA is 1 hour for critical issues and 8 hours for standard tickets.",
+        ),
+    ]
+    for title, source_name, content in demo_docs:
+        doc = Document(
+            organization_id=org.id,
+            uploaded_by=users[0].id,
+            title=title,
+            source_name=source_name,
+            content_hash=hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            version=1,
+            content=content,
+        )
+        db.add(doc)
+        db.flush()
+        run = IngestionRun(document_id=doc.id, status="completed", attempts=1)
+        db.add(run)
+        chunks = ingestion_service.chunk_document(doc)
+        for chunk in chunks:
+            db.add(chunk)
+        db.flush()
+        for chunk in chunks:
+            embedding_index_service.upsert_chunk_embedding(db, chunk.id, embedding_service.embed_text(chunk.content))
+    db.commit()

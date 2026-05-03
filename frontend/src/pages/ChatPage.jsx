@@ -272,6 +272,13 @@ export default function ChatPage() {
               <p className="text-sm text-slate-500">Open source panel to inspect highlighted evidence.</p>
             ) : selectedCitation ? (
               <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>
+              <>
+              {selectedCitation ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">Select a citation to preview highlighted source text.</p>
+              )}
+              </>
             ) : (
               <p className="mt-3 text-sm text-slate-500">Select a citation to preview highlighted source text.</p>
             )}
