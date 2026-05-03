@@ -23,7 +23,9 @@ class AnswerService:
             )
 
         average_score = sum(citation.retrieval_score for citation in citations) / max(1, len(citations))
-        if grounded_mode and average_score < 0.35:
+        top_score = max(citation.retrieval_score for citation in citations)
+        score_spread = top_score - min(citation.retrieval_score for citation in citations)
+        if grounded_mode and (average_score < 0.35 or top_score < 0.45):
             return AnswerResult(
                 text=(
                     "I do not have enough grounded evidence in the indexed documents to answer reliably. "
@@ -31,6 +33,16 @@ class AnswerService:
                 ),
                 insufficient_evidence=True,
                 answer_mode="insufficient_evidence",
+                evidence_summary=[],
+            )
+        if grounded_mode and len(citations) < 2 and score_spread < 0.05:
+            return AnswerResult(
+                text=(
+                    "I found only limited corroborating evidence for this question. "
+                    "Please refine the query or provide additional sources."
+                ),
+                insufficient_evidence=True,
+                answer_mode="low_confidence_fallback",
                 evidence_summary=[],
             )
         generation = llm_service.generate_grounded_answer(query, citations)
