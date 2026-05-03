@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -16,7 +16,6 @@ from app.services.ingestion_service import IngestionService
 from app.services.llm_service import HeuristicGroundedLLM
 from app.services.query_rewrite_service import QueryRewriteService
 from app.services.retrieval_service import RetrievalFilters, RetrievalService
-from app.services.rerank_service import RetrievalCandidate
 from app.services.security_text_service import SecurityTextService
 from app.services.vector_store import FaissVectorStore
 
