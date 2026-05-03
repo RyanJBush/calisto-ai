@@ -8,6 +8,9 @@ class AdminAnalyticsSummaryResponse(BaseModel):
     chunks_total: int
     chat_sessions_total: int
     queries_total: int
+    documents_ingested: int
+    queries_processed: int
+    average_query_latency_ms: float
     ingestions_processing: int
     ingestions_queued: int
     ingestions_completed: int

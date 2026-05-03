@@ -8,7 +8,7 @@ class AdminService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get_analytics_summary(self, organization_id: int) -> dict[str, int]:
+    def get_analytics_summary(self, organization_id: int) -> dict[str, int | float]:
         total_documents = (
             self.db.query(func.count(Document.id)).filter(Document.organization_id == organization_id).scalar() or 0
         )
@@ -62,11 +62,36 @@ class AdminService:
             .scalar()
             or 0
         )
+        chat_latency_logs = (
+            self.db.query(AuditLog.details)
+            .filter(AuditLog.organization_id == organization_id, AuditLog.action == "chat_query")
+            .order_by(AuditLog.created_at.desc())
+            .limit(500)
+            .all()
+        )
+        latency_values: list[float] = []
+        for row in chat_latency_logs:
+            details = row.details or ""
+            marker = "latency_ms_total="
+            start = details.find(marker)
+            if start < 0:
+                continue
+            value_start = start + len(marker)
+            value_end = details.find(";", value_start)
+            raw_value = details[value_start:] if value_end < 0 else details[value_start:value_end]
+            try:
+                latency_values.append(float(raw_value))
+            except ValueError:
+                continue
+        average_latency_ms = round(sum(latency_values) / len(latency_values), 2) if latency_values else 0.0
         return {
             "documents_total": int(total_documents),
             "chunks_total": int(total_chunks),
             "chat_sessions_total": int(total_chat_sessions),
             "queries_total": int(total_queries),
+            "documents_ingested": int(ingestions_completed),
+            "queries_processed": int(total_queries),
+            "average_query_latency_ms": average_latency_ms,
             "ingestions_processing": int(ingestions_processing),
             "ingestions_queued": int(ingestions_queued),
             "ingestions_completed": int(ingestions_completed),
