@@ -109,3 +109,8 @@ export async function fetchDocumentIngestionRuns(documentId) {
   const { data } = await api.get(`/api/documents/${documentId}/ingestion-runs`);
   return data;
 }
+
+export async function previewChunks(payload) {
+  const { data } = await api.post("/api/documents/preview-chunks", payload);
+  return data;
+}

@@ -12,29 +12,48 @@ class LLMGeneration:
 
 
 class HeuristicGroundedLLM:
+    """Heuristic-based grounded answer generator.
+
+    Composes a structured, readable answer directly from the top retrieved
+    evidence chunks without calling an external LLM.  Every claim is tied
+    to a specific chunk reference so the answer is fully traceable.
+    """
+
     def generate(self, query: str, citations: list[Citation]) -> LLMGeneration:
-        ordered = sorted(citations, key=lambda citation: citation.retrieval_score, reverse=True)
+        ordered = sorted(citations, key=lambda c: c.retrieval_score, reverse=True)
         top = ordered[:3]
+
         evidence_summary = [
-            f"{citation.document_title}: {citation.snippet.strip()}" for citation in top if citation.snippet.strip()
+            f"{c.document_title}: {c.snippet.strip()}" for c in top if c.snippet.strip()
         ]
 
-        lines = [
-            f"Question: {query}",
-            "Answer (grounded only in retrieved evidence):",
-        ]
-        if not top:
-            lines.append("- I cannot answer from the currently retrieved evidence.")
-        for index, citation in enumerate(top, start=1):
-            lines.append(
-                f"- Claim [{index}] ({citation.document_title}, chunk={citation.chunk_id}): "
-                f"{citation.snippet.strip() or citation.source_preview[:120]}"
+        # Build a concise, structured answer from the top evidence chunks.
+        answer_lines: list[str] = []
+        seen_snippets: set[str] = set()
+
+        for idx, citation in enumerate(top, start=1):
+            body = citation.snippet.strip() or citation.source_preview[:180].strip()
+            if not body or body in seen_snippets:
+                continue
+            seen_snippets.add(body)
+            # Label each claim with its source so users can verify it.
+            section = f" — {citation.section_label}" if citation.section_label else ""
+            answer_lines.append(
+                f"[{idx}] {body} "
+                f"(Source: {citation.document_title}{section}, chunk #{citation.chunk_id})"
             )
-        lines.append("If details are missing from cited evidence, treat the answer as incomplete.")
-        lines.append("Use the cited sources to verify policy-sensitive details before acting.")
+
+        if not answer_lines:
+            answer_text = "No relevant evidence was found for this query in the indexed documents."
+        else:
+            answer_text = (
+                "Based on the indexed knowledge base:\n\n"
+                + "\n\n".join(answer_lines)
+                + "\n\nVerify policy-sensitive details directly in the cited sources before acting."
+            )
 
         return LLMGeneration(
-            text="\n".join(lines),
+            text=answer_text,
             mode="grounded_heuristic",
             evidence_summary=evidence_summary,
         )

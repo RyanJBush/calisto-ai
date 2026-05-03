@@ -10,17 +10,21 @@ Calisto AI is a production-style monorepo for an enterprise Retrieval-Augmented 
 /docs      Architecture and engineering guides
 ```
 
-## Features (MVP)
+## Features
 
-- FastAPI backend with JWT authentication and RBAC (`Admin`, `Member`, `Viewer`)
-- Multi-tenant-ready domain models (organizations, users, documents, chunks, chat sessions/messages)
-- Document ingestion pipeline with chunking and embedding placeholders
-- Retrieval + citation-aware answer composition
-- React frontend with enterprise SaaS layout and core pages (Login, Dashboard, Documents, Chat, Settings)
-- PostgreSQL-ready deployment with Docker Compose
-- Local FAISS-style vector retrieval abstraction for MVP, designed for future `pgvector` swap
-- Structured logging, health checks, and lightweight metrics
-- CI workflow for backend lint/tests and frontend build validation
+- **FastAPI backend** with JWT authentication and RBAC (`Admin`, `Member`, `Viewer`)
+- **Multi-tenant domain models** — organizations, users, documents, chunks, chat sessions/messages
+- **Hybrid retrieval** — vector similarity search + keyword BM25-style search blended with reranking
+- **Semantic chunking** — paragraphs + sentence boundaries with configurable size and overlap
+- **Metadata filtering** — filter by document, collection, section, and tags
+- **Configurable top-k** retrieval with confidence scoring and citation coverage metrics
+- **Citation-aware answers** — every answer is traced back to source chunks with highlighted evidence
+- **Document ingestion pipeline** — PDF, TXT, and Markdown support; deduplication, PII redaction, chunk preview
+- **Background ingestion jobs** with status tracking and retry logic
+- **Admin analytics dashboard** — queries processed, avg latency, top documents, ingestion breakdown, audit logs
+- **Seeded demo dataset** — 5 realistic enterprise documents pre-chunked and indexed for instant querying
+- **React frontend** with polished SaaS layout: sidebar navigation, confidence badges, source preview panel, loading/error states
+- **Docker Compose** deployment ready; SQLite for local dev, PostgreSQL-ready for production
 
 ## Quick Start
 
@@ -37,24 +41,41 @@ make bootstrap
 cp backend/.env.example backend/.env
 make db-upgrade
 make init
-make run-backend
-make run-frontend
+make run-backend   # http://localhost:8000
+make run-frontend  # http://localhost:5173
 ```
 
-Backend defaults to `http://localhost:8000`, frontend to `http://localhost:5173`.
+### Fast Demo (< 2 minutes)
 
-### Fast Demo (Seeded Dataset + Example Queries)
-
-1. Run backend/frontend as above.
-2. Login with demo admin user:
+1. Start the backend and frontend as above.
+2. Open **http://localhost:5173** and log in:
    - `admin@calisto.ai` / `password123`
-3. Open **Chat** and click one of the suggested example queries.
-4. Inspect:
-   - citation cards,
-   - source preview highlights,
-   - confidence + coverage telemetry.
+3. Navigate to **Chat** and click one of the example query chips, e.g.:
+   - *"What is the leave policy?"*
+   - *"What is the escalation window for P1 incidents?"*
+   - *"How fast do we respond to critical support tickets?"*
+   - *"How often are performance reviews conducted?"*
+   - *"What is the data retention period for customer documents?"*
+4. Inspect the response:
+   - **Confidence badge** (green/amber/red) based on retrieval scores
+   - **Citation cards** with relevance %, section label, and chunk reference
+   - **Source Preview panel** with highlighted evidence terms
+   - **Latency breakdown** (rewrite → retrieval → answer)
+   - **Feedback buttons** to rate answers
+5. Go to **Documents** to upload a new file (PDF, TXT, or MD), preview chunks before indexing, and manage collections.
+6. Visit **Dashboard** (admin only) for live platform metrics.
 
-The seed script now includes demo knowledge documents (HR policy, security operations, support SLA) that are pre-chunked and indexed for immediate querying.
+### Seeded Demo Documents
+
+The `make init` command seeds 5 enterprise knowledge documents:
+
+| Document | Content |
+|---|---|
+| Employee Handbook | Leave policy, remote work, expense policy, performance reviews, code of conduct |
+| Security Operations Guide | P1–P4 incident levels, escalation procedures, vulnerability management, access control |
+| Support SLA | Response/resolution time targets by plan, escalation procedure, SLA credits |
+| Engineering Onboarding Guide | Dev workflow, tech stack, deployment process, on-call rotation |
+| Data Retention Policy | Retention periods, backup policy, GDPR/CCPA compliance |
 
 ### Docker Compose
 
@@ -64,14 +85,20 @@ docker compose up --build
 
 ## Backend Endpoints
 
-- `GET /health`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/documents/upload`
-- `GET /api/documents`
-- `GET /api/documents/{id}`
-- `POST /api/chat/query`
-- `GET /api/chat/history`
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+| POST | `/api/auth/login` | Authenticate and receive JWT |
+| GET | `/api/auth/me` | Current user profile |
+| POST | `/api/documents/upload` | Upload document (PDF/TXT/MD) |
+| POST | `/api/documents/preview-chunks` | Preview chunks before indexing |
+| GET | `/api/documents` | List documents |
+| GET | `/api/documents/{id}` | Document detail with chunks |
+| GET | `/api/documents/{id}/ingestion-runs` | Ingestion run history |
+| POST | `/api/chat/query` | Submit query, receive answer + citations |
+| GET | `/api/chat/history` | Chat history |
+| POST | `/api/chat/feedback` | Submit answer feedback |
+| GET | `/api/admin/analytics/summary` | Platform analytics (admin) |
 
 ## Testing and Linting
 
@@ -89,9 +116,11 @@ make db-downgrade
 
 ## Demo Credentials (Seeded)
 
-- `admin@calisto.ai` / `password123`
-- `member@calisto.ai` / `password123`
-- `viewer@calisto.ai` / `password123`
+| Email | Password | Role |
+|---|---|---|
+| `admin@calisto.ai` | `password123` | Admin |
+| `member@calisto.ai` | `password123` | Member |
+| `viewer@calisto.ai` | `password123` | Viewer |
 
 ## Architecture Overview
 
@@ -106,5 +135,5 @@ See:
 - Replace in-memory vector implementation with persistent FAISS index service
 - Add pgvector provider implementation behind vector store interface
 - Add SSO/SCIM integrations for enterprise identity workflows
-- Add audit logs, tracing, and richer metrics dashboards
-- Add document parsing for PDF/DOCX inputs and async ingestion jobs
+- Add richer metrics dashboards with time-series charts
+- Add OpenAI / Anthropic LLM provider behind the existing `LLMService` interface
