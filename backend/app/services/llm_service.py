@@ -19,9 +19,18 @@ class HeuristicGroundedLLM:
             f"{citation.document_title}: {citation.snippet.strip()}" for citation in top if citation.snippet.strip()
         ]
 
-        lines = [f"Grounded answer for: '{query}'"]
+        lines = [
+            f"Question: {query}",
+            "Answer (grounded only in retrieved evidence):",
+        ]
+        if not top:
+            lines.append("- I cannot answer from the currently retrieved evidence.")
         for index, citation in enumerate(top, start=1):
-            lines.append(f"- Evidence [{index}] from {citation.document_title}: {citation.snippet.strip()}")
+            lines.append(
+                f"- Claim [{index}] ({citation.document_title}, chunk={citation.chunk_id}): "
+                f"{citation.snippet.strip() or citation.source_preview[:120]}"
+            )
+        lines.append("If details are missing from cited evidence, treat the answer as incomplete.")
         lines.append("Use the cited sources to verify policy-sensitive details before acting.")
 
         return LLMGeneration(
