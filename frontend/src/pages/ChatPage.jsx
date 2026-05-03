@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchHistory, queryChat, submitChatFeedback } from "../services/api";
+import { fetchHistory, listDocuments, queryChat, submitChatFeedback } from "../services/api";
 
 export default function ChatPage() {
   const [query, setQuery] = useState("What is Calisto AI?");
@@ -21,37 +21,56 @@ export default function ChatPage() {
   const [historyFilter, setHistoryFilter] = useState("");
   const [collectionFilterId, setCollectionFilterId] = useState("");
   const [citationSort, setCitationSort] = useState("relevance");
+  const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [isLoadingAnswer, setIsLoadingAnswer] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function loadHistory() {
     const data = await fetchHistory();
     setHistory(data);
   }
 
+  async function loadDocuments() {
+    const data = await listDocuments();
+    setDocuments(data);
+  }
+
   useEffect(() => {
     loadHistory().catch(() => setHistory([]));
+    loadDocuments().catch(() => setDocuments([]));
   }, []);
 
   async function onAsk(event) {
     event.preventDefault();
-    const response = await queryChat({
-      query,
-      filters: collectionFilterId ? { collection_id: Number(collectionFilterId) } : undefined
-    });
-    const orderedCitations = [...response.citations].sort((left, right) => right.retrieval_score - left.retrieval_score);
-    setAnswer(response.answer);
-    setCitations(orderedCitations);
-    setSelectedCitation(orderedCitations[0] || null);
-    setAnswerMode(response.answer_mode);
-    setEvidenceSummary(response.evidence_summary || []);
-    setConfidenceScore(response.confidence_score);
-    setCitationCoverage(response.citation_coverage);
-    setInsufficientEvidence(response.insufficient_evidence);
-    setRewrittenQuery(response.rewritten_query);
-    setLatencyBreakdown(response.latency_breakdown_ms);
-    setAssistantMessageId(response.assistant_message_id);
-    setFeedbackStatus("");
-    setFeedbackComment("");
-    await loadHistory();
+    setIsLoadingAnswer(true);
+    setErrorMessage("");
+    try {
+      const response = await queryChat({
+        query,
+        filters: collectionFilterId ? { collection_id: Number(collectionFilterId) } : undefined
+      });
+      const orderedCitations = [...response.citations].sort((left, right) => right.retrieval_score - left.retrieval_score);
+      setAnswer(response.answer);
+      setCitations(orderedCitations);
+      setSelectedCitation(orderedCitations[0] || null);
+      setSourceDrawerOpen(Boolean(orderedCitations[0]));
+      setAnswerMode(response.answer_mode);
+      setEvidenceSummary(response.evidence_summary || []);
+      setConfidenceScore(response.confidence_score);
+      setCitationCoverage(response.citation_coverage);
+      setInsufficientEvidence(response.insufficient_evidence);
+      setRewrittenQuery(response.rewritten_query);
+      setLatencyBreakdown(response.latency_breakdown_ms);
+      setAssistantMessageId(response.assistant_message_id);
+      setFeedbackStatus("");
+      setFeedbackComment("");
+      await loadHistory();
+    } catch {
+      setErrorMessage("Failed to retrieve answer. Please try again.");
+    } finally {
+      setIsLoadingAnswer(false);
+    }
   }
 
   const sortedCitations = [...citations].sort((left, right) => {
@@ -102,8 +121,22 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={onAsk} className="rounded-lg border border-slate-200 bg-white p-5">
+    <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Documents</h3>
+        <p className="mt-1 text-xs text-slate-500">Indexed sources available for retrieval.</p>
+        <ul className="mt-3 max-h-[460px] space-y-2 overflow-auto pr-1">
+          {documents.map((doc) => (
+            <li key={doc.id} className="rounded-lg border border-slate-200 px-3 py-2">
+              <p className="text-sm font-medium text-slate-800">{doc.title}</p>
+              <p className="text-xs text-slate-500">Status: {doc.ingestion_status}</p>
+            </li>
+          ))}
+          {documents.length === 0 && <li className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">No documents yet.</li>}
+        </ul>
+      </aside>
+      <div className="space-y-6">
+      <form onSubmit={onAsk} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Citation-Aware Chat</h2>
         <textarea
           rows={3}
@@ -111,7 +144,7 @@ export default function ChatPage() {
           onChange={(event) => setQuery(event.target.value)}
           className="mb-3 w-full rounded-md border border-slate-300 px-3 py-2"
         />
-        <button className="rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">Ask</button>
+        <button disabled={isLoadingAnswer} className="rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700 disabled:opacity-60">{isLoadingAnswer ? "Thinking..." : "Ask"}</button>
         <input
           value={collectionFilterId}
           onChange={(event) => setCollectionFilterId(event.target.value)}
@@ -120,6 +153,7 @@ export default function ChatPage() {
         />
       </form>
 
+      {errorMessage && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{errorMessage}</div>}
       {answer && (
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-white p-5">
@@ -199,6 +233,7 @@ export default function ChatPage() {
                     <p className="mt-1 text-xs text-slate-500">
                       Relevance: {(citation.retrieval_score * 100).toFixed(0)}%
                     </p>
+                    <p className="mt-1 text-xs text-slate-500">Chunk #{citation.chunk_id}</p>
                   </button>
                 </li>
               ))}
@@ -206,13 +241,31 @@ export default function ChatPage() {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <h3 className="text-sm font-semibold uppercase text-slate-500">Source Preview</h3>
-            {selectedCitation ? (
-              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase text-slate-500">Source Preview</h3>
+              <button onClick={() => setSourceDrawerOpen((prev) => !prev)} type="button" className="text-xs text-brand-700">
+                {sourceDrawerOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+            {!sourceDrawerOpen ? (
+              <p className="text-sm text-slate-500">Open source panel to inspect highlighted evidence.</p>
+            ) : selectedCitation ? (
+              <>
+              {selectedCitation ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>
+              ) : (
+                <p className="mt-3 text-sm text-slate-500">Select a citation to preview highlighted source text.</p>
+              )}
+              </>
             ) : (
               <p className="mt-3 text-sm text-slate-500">Select a citation to preview highlighted source text.</p>
             )}
           </div>
+        </section>
+      )}
+      {!answer && !isLoadingAnswer && (
+        <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+          Ask a question to see grounded answers, citations, and source previews.
         </section>
       )}
 
@@ -237,6 +290,7 @@ export default function ChatPage() {
           {history.length === 0 && <li>No chat history yet.</li>}
         </ul>
       </section>
+      </div>
     </div>
   );
 }
