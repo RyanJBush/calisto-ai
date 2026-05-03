@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { fetchHistory, listDocuments, queryChat, submitChatFeedback } from "../services/api";
 
 export default function ChatPage() {
+  const demoQueries = [
+    "What is the leave policy?",
+    "How fast do we respond to critical support tickets?",
+    "What is the escalation window for P1 incidents?"
+  ];
   const [query, setQuery] = useState("What is Calisto AI?");
   const [answer, setAnswer] = useState("");
   const [citations, setCitations] = useState([]);
@@ -144,6 +149,18 @@ export default function ChatPage() {
           onChange={(event) => setQuery(event.target.value)}
           className="mb-3 w-full rounded-md border border-slate-300 px-3 py-2"
         />
+        <div className="mb-3 flex flex-wrap gap-2">
+          {demoQueries.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setQuery(item)}
+              className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-100"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
         <button disabled={isLoadingAnswer} className="rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700 disabled:opacity-60">{isLoadingAnswer ? "Thinking..." : "Ask"}</button>
         <input
           value={collectionFilterId}
