@@ -12,7 +12,7 @@ class QueryFilters(BaseModel):
 
 
 class ChatQueryRequest(BaseModel):
-    query: str
+    query: str = Field(min_length=2, max_length=4000)
     session_id: int | None = None
     filters: QueryFilters | None = None
     grounded_mode: bool = True

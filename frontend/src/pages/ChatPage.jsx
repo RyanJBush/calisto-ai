@@ -48,6 +48,10 @@ export default function ChatPage() {
 
   async function onAsk(event) {
     event.preventDefault();
+    if (!query.trim()) {
+      setErrorMessage("Please enter a question before submitting.");
+      return;
+    }
     setIsLoadingAnswer(true);
     setErrorMessage("");
     try {
@@ -267,6 +271,7 @@ export default function ChatPage() {
             {!sourceDrawerOpen ? (
               <p className="text-sm text-slate-500">Open source panel to inspect highlighted evidence.</p>
             ) : selectedCitation ? (
+              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>
               <>
               {selectedCitation ? (
                 <p className="mt-3 whitespace-pre-wrap text-sm text-slate-800">{renderHighlightedPreview(selectedCitation)}</p>

@@ -56,15 +56,22 @@ class RetrievalService:
 
         max_vector_score = max((match.score for match in vector_matches), default=1.0)
         combined: dict[int, RetrievalCandidate] = {}
-
-        for match in vector_matches:
-            chunk = (
+        vector_chunk_ids = [match.item_id for match in vector_matches]
+        keyword_chunk_ids = list(keyword_scores.keys())
+        chunk_ids = list({*vector_chunk_ids, *keyword_chunk_ids})
+        chunk_map: dict[int, Chunk] = {}
+        if chunk_ids:
+            rows = (
                 self.db.query(Chunk)
                 .options(joinedload(Chunk.document))
                 .join(Document, Chunk.document_id == Document.id)
-                .filter(Chunk.id == match.item_id, Document.organization_id == organization_id)
-                .first()
+                .filter(Chunk.id.in_(chunk_ids), Document.organization_id == organization_id)
+                .all()
             )
+            chunk_map = {chunk.id: chunk for chunk in rows}
+
+        for match in vector_matches:
+            chunk = chunk_map.get(match.item_id)
             if chunk is None or not self._matches_filters(chunk, filters):
                 continue
             normalized_vector_score = match.score / max_vector_score if max_vector_score > 0 else 0.0
@@ -86,13 +93,7 @@ class RetrievalService:
                 )
                 continue
 
-            chunk = (
-                self.db.query(Chunk)
-                .options(joinedload(Chunk.document))
-                .join(Document, Chunk.document_id == Document.id)
-                .filter(Chunk.id == chunk_id, Document.organization_id == organization_id)
-                .first()
-            )
+            chunk = chunk_map.get(chunk_id)
             if chunk is None:
                 continue
 
