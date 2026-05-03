@@ -44,6 +44,7 @@ class ChatService:
         grounded_mode: bool = True,
         top_k: int = 3,
     ) -> tuple[ChatSession, int, str, str, list[str], list[str], list[Citation], bool, float, float, str, dict[str, float]]:
+    ) -> tuple[ChatSession, int, str, str, list[str], list[Citation], bool, float, float, str, dict[str, float]]:
         session = self._get_or_create_session(user, session_id)
         total_start = time.perf_counter()
         rewrite_start = time.perf_counter()
