@@ -18,6 +18,8 @@ class RetrievalFilters:
     source_name: str | None = None
     document_ids: list[int] | None = None
     collection_id: int | None = None
+    section: str | None = None
+    tags: list[str] | None = None
 
 
 class RetrievalService:
@@ -54,15 +56,22 @@ class RetrievalService:
 
         max_vector_score = max((match.score for match in vector_matches), default=1.0)
         combined: dict[int, RetrievalCandidate] = {}
-
-        for match in vector_matches:
-            chunk = (
+        vector_chunk_ids = [match.item_id for match in vector_matches]
+        keyword_chunk_ids = list(keyword_scores.keys())
+        chunk_ids = list({*vector_chunk_ids, *keyword_chunk_ids})
+        chunk_map: dict[int, Chunk] = {}
+        if chunk_ids:
+            rows = (
                 self.db.query(Chunk)
                 .options(joinedload(Chunk.document))
                 .join(Document, Chunk.document_id == Document.id)
-                .filter(Chunk.id == match.item_id, Document.organization_id == organization_id)
-                .first()
+                .filter(Chunk.id.in_(chunk_ids), Document.organization_id == organization_id)
+                .all()
             )
+            chunk_map = {chunk.id: chunk for chunk in rows}
+
+        for match in vector_matches:
+            chunk = chunk_map.get(match.item_id)
             if chunk is None or not self._matches_filters(chunk, filters):
                 continue
             normalized_vector_score = match.score / max_vector_score if max_vector_score > 0 else 0.0
@@ -84,13 +93,7 @@ class RetrievalService:
                 )
                 continue
 
-            chunk = (
-                self.db.query(Chunk)
-                .options(joinedload(Chunk.document))
-                .join(Document, Chunk.document_id == Document.id)
-                .filter(Chunk.id == chunk_id, Document.organization_id == organization_id)
-                .first()
-            )
+            chunk = chunk_map.get(chunk_id)
             if chunk is None:
                 continue
 
@@ -152,6 +155,12 @@ class RetrievalService:
             query_builder = query_builder.filter(Document.id.in_(filters.document_ids))
         if filters.collection_id:
             query_builder = query_builder.filter(Document.collection_id == filters.collection_id)
+        if filters.section:
+            query_builder = query_builder.filter(Chunk.content.ilike(f"%{filters.section}%"))
+        if filters.tags:
+            tag_clauses = [Chunk.content.ilike(f"%{tag}%") for tag in filters.tags if tag]
+            if tag_clauses:
+                query_builder = query_builder.filter(or_(*tag_clauses))
 
         candidates = (
             query_builder.options(joinedload(Chunk.document))
@@ -202,4 +211,10 @@ class RetrievalService:
             return False
         if filters.collection_id and chunk.document.collection_id != filters.collection_id:
             return False
+        if filters.section and filters.section.lower() not in chunk.content.lower():
+            return False
+        if filters.tags:
+            normalized_tags = [tag.lower() for tag in filters.tags if tag]
+            if normalized_tags and not any(tag in chunk.content.lower() for tag in normalized_tags):
+                return False
         return True

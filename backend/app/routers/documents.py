@@ -7,6 +7,8 @@ from app.models import User
 from app.schemas.documents import (
     CollectionCreateRequest,
     CollectionResponse,
+    ChunkPreviewRequest,
+    ChunkPreviewResponse,
     DocumentAccessRequest,
     DocumentAccessResponse,
     DocumentDetailResponse,
@@ -29,8 +31,31 @@ def upload_document(
     try:
         document = service.upload_document(payload, user)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        message = str(exc)
+        status_code = status.HTTP_409_CONFLICT if "Duplicate document" in message else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=message) from exc
     return DocumentResponse.model_validate(document)
+
+
+@router.post("/preview-chunks", response_model=ChunkPreviewResponse)
+def preview_chunks(
+    payload: ChunkPreviewRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("admin", "member")),
+) -> ChunkPreviewResponse:
+    service = DocumentService(db)
+    try:
+        chunks = service.preview_chunks(
+            title=payload.title,
+            content=payload.content,
+            file_data_base64=payload.file_data_base64,
+            file_type=payload.file_type,
+            chunk_size=payload.chunk_size,
+            overlap=payload.overlap,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return ChunkPreviewResponse(chunk_count=len(chunks), chunks=chunks)
 
 
 @router.get("", response_model=list[DocumentResponse])

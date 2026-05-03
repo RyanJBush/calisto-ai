@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import Chunk, Collection, Document, DocumentAccess, IngestionRun, User
 from app.schemas.documents import DocumentUploadRequest
+from app.services.content_extraction_service import ContentExtractionService
+from app.services.ingestion_service import IngestionService
 from app.services.audit_service import AuditService
 from app.services.ingestion_job_service import ingestion_job_service
 from app.services.security_text_service import SecurityTextService
@@ -15,18 +17,24 @@ class DocumentService:
         self.db = db
         self.audit_service = AuditService(db)
         self.security_text_service = SecurityTextService()
+        self.content_extraction_service = ContentExtractionService()
+        self.ingestion_service = IngestionService()
 
     def upload_document(self, payload: DocumentUploadRequest, user: User) -> Document:
         source_name = payload.source_name or payload.title
+        parsed_content = self.content_extraction_service.parse(
+            content=payload.content,
+            file_data_base64=payload.file_data_base64,
+            file_type=payload.file_type,
+        )
         normalized_content = (
-            self.security_text_service.redact_pii(payload.content) if payload.redact_pii else payload.content
+            self.security_text_service.redact_pii(parsed_content) if payload.redact_pii else parsed_content
         )
         content_hash = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
         duplicate = (
             self.db.query(Document)
             .filter(
                 Document.organization_id == user.organization_id,
-                Document.source_name == source_name,
                 Document.content_hash == content_hash,
             )
             .first()
@@ -82,6 +90,25 @@ class DocumentService:
 
         self.db.refresh(document)
         return document
+
+    def preview_chunks(
+        self,
+        *,
+        title: str,
+        content: str | None,
+        file_data_base64: str | None,
+        file_type: str,
+        chunk_size: int,
+        overlap: int,
+    ) -> list[str]:
+        parsed_content = self.content_extraction_service.parse(
+            content=content,
+            file_data_base64=file_data_base64,
+            file_type=file_type,
+        )
+        preview_doc = Document(id=0, organization_id=0, uploaded_by=0, title=title, source_name=title, content_hash="", content=parsed_content, version=1)
+        chunks = self.ingestion_service.chunk_document(preview_doc, chunk_size=chunk_size, overlap=overlap)
+        return [chunk.content for chunk in chunks]
 
     def list_documents_for_user(self, user: User) -> list[Document]:
         query = (

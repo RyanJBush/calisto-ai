@@ -42,7 +42,8 @@ class ChatService:
         session_id: int | None,
         filters: QueryFilters | None = None,
         grounded_mode: bool = True,
-    ) -> tuple[ChatSession, int, str, str, list[str], list[Citation], bool, float, float, str, dict[str, float]]:
+        top_k: int = 3,
+    ) -> tuple[ChatSession, int, str, str, list[str], list[str], list[Citation], bool, float, float, str, dict[str, float]]:
         session = self._get_or_create_session(user, session_id)
         total_start = time.perf_counter()
         rewrite_start = time.perf_counter()
@@ -59,12 +60,15 @@ class ChatService:
             source_name=filters.source_name if filters else None,
             document_ids=effective_ids,
             collection_id=filters.collection_id if filters else None,
+            section=filters.section if filters else None,
+            tags=filters.tags if filters else None,
         )
         retrieval_start = time.perf_counter()
         retrieved = self.retrieval_service.retrieve(
             rewritten_query,
             organization_id=user.organization_id,
             filters=retrieval_filters,
+            top_k=max(1, min(12, top_k)),
         )
         retrieval_ms = (time.perf_counter() - retrieval_start) * 1000
 
@@ -85,6 +89,8 @@ class ChatService:
                     highlight_end=highlight_end,
                     highlight_ranges=highlight_ranges,
                     retrieval_score=round(score.rerank_score or score.score, 4),
+                    section_label=self._derive_section_label(chunk.content),
+                    evidence=chunk.content[:500],
                 )
             )
 
@@ -93,6 +99,7 @@ class ChatService:
         answer_ms = (time.perf_counter() - answer_start) * 1000
         citation_coverage = self._compute_citation_coverage(rewritten_query, citations)
         confidence_score = self._compute_confidence(citations, citation_coverage, answer_result.insufficient_evidence)
+        source_alignment = self._build_source_alignment(answer_result.text, citations)
         total_ms = (time.perf_counter() - total_start) * 1000
 
         self.db.add(ChatMessage(session_id=session.id, role="user", content=query_text))
@@ -119,6 +126,7 @@ class ChatService:
             answer_result.text,
             answer_result.answer_mode,
             answer_result.evidence_summary,
+            source_alignment,
             citations,
             answer_result.insufficient_evidence,
             confidence_score,
@@ -233,3 +241,25 @@ class ChatService:
 
         average_retrieval = sum(citation.retrieval_score for citation in citations) / max(1, len(citations))
         return round(min(1.0, (average_retrieval * 0.7) + (citation_coverage * 0.3)), 4)
+
+    def _build_source_alignment(self, answer_text: str, citations: list[Citation]) -> list[str]:
+        alignments: list[str] = []
+        lowered = answer_text.lower()
+        for citation in citations[:5]:
+            section = citation.section_label or "general"
+            marker = f"{citation.document_title.lower()}"
+            if marker in lowered:
+                alignments.append(f"{citation.document_title} ({section}) explicitly referenced in answer")
+            else:
+                alignments.append(f"{citation.document_title} ({section}) supports cited claims via chunk {citation.chunk_id}")
+        return alignments
+
+    def _derive_section_label(self, content: str) -> str | None:
+        first_line = next((line.strip() for line in content.splitlines() if line.strip()), "")
+        if not first_line:
+            return None
+        if first_line.startswith(("#", "##", "###")):
+            return first_line.lstrip("#").strip()[:120]
+        if ":" in first_line and len(first_line) < 120:
+            return first_line[:120]
+        return first_line[:80]

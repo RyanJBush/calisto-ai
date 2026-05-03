@@ -43,6 +43,19 @@ make run-frontend
 
 Backend defaults to `http://localhost:8000`, frontend to `http://localhost:5173`.
 
+### Fast Demo (Seeded Dataset + Example Queries)
+
+1. Run backend/frontend as above.
+2. Login with demo admin user:
+   - `admin@calisto.ai` / `password123`
+3. Open **Chat** and click one of the suggested example queries.
+4. Inspect:
+   - citation cards,
+   - source preview highlights,
+   - confidence + coverage telemetry.
+
+The seed script now includes demo knowledge documents (HR policy, security operations, support SLA) that are pre-chunked and indexed for immediate querying.
+
 ### Docker Compose
 
 ```bash

@@ -5,10 +5,26 @@ from pydantic import BaseModel
 
 class DocumentUploadRequest(BaseModel):
     title: str
-    content: str
+    content: str | None = None
     source_name: str | None = None
+    file_type: str = "txt"
+    file_data_base64: str | None = None
     redact_pii: bool = False
     collection_id: int | None = None
+
+
+class ChunkPreviewRequest(BaseModel):
+    title: str = "Preview"
+    content: str | None = None
+    file_type: str = "txt"
+    file_data_base64: str | None = None
+    chunk_size: int = 700
+    overlap: int = 120
+
+
+class ChunkPreviewResponse(BaseModel):
+    chunk_count: int
+    chunks: list[str]
 
 
 class ChunkResponse(BaseModel):

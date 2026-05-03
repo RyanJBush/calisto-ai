@@ -62,9 +62,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <StatsCard label="Documents Indexed" value={summary?.documents_total ?? "-"} />
-        <StatsCard label="Chat Sessions" value={summary?.chat_sessions_total ?? "-"} />
-        <StatsCard label="Queries" value={summary?.queries_total ?? "-"} />
+        <StatsCard label="Documents Ingested" value={summary?.documents_ingested ?? "-"} />
+        <StatsCard label="Queries Processed" value={summary?.queries_processed ?? "-"} />
+        <StatsCard label="Avg Latency (ms)" value={summary ? summary.average_query_latency_ms.toFixed(1) : "-"} />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <StatsCard label="Positive Feedback" value={feedbackSummary ? `${(feedbackSummary.positive_ratio * 100).toFixed(0)}%` : "-"} />
