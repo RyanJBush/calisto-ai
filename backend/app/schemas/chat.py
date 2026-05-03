@@ -44,6 +44,7 @@ class ChatQueryResponse(BaseModel):
     citation_coverage: float
     insufficient_evidence: bool
     latency_breakdown_ms: dict[str, float]
+    source_alignment: list[str] = []
     citations: list[Citation]
 
 

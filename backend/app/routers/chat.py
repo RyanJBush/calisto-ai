@@ -29,6 +29,7 @@ def query(
         answer,
         answer_mode,
         evidence_summary,
+        source_alignment,
         citations,
         insufficient_evidence,
         confidence_score,
@@ -54,6 +55,7 @@ def query(
         citation_coverage=citation_coverage,
         insufficient_evidence=insufficient_evidence,
         latency_breakdown_ms=latency_breakdown_ms,
+        source_alignment=source_alignment,
         citations=citations,
     )
 
