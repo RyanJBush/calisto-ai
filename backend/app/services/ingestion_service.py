@@ -23,19 +23,26 @@ class IngestionService:
             if len(candidate) <= chunk_size:
                 buffer = candidate
                 continue
-            chunk_text = buffer.strip() if buffer else unit[:chunk_size].strip()
-            if chunk_text:
-                chunks.append(Chunk(document_id=document.id, chunk_index=index, content=chunk_text))
-                index += 1
             if buffer:
-                buffer = self._tail_with_overlap(buffer, overlap)
-                if buffer and buffer != unit:
-                    maybe_merged = f"{buffer}\n\n{unit}".strip()
+                chunk_text = buffer.strip()
+                if chunk_text:
+                    chunks.append(Chunk(document_id=document.id, chunk_index=index, content=chunk_text))
+                    index += 1
+                overlap_tail = self._tail_with_overlap(buffer, overlap)
+                if overlap_tail and overlap_tail != unit:
+                    maybe_merged = f"{overlap_tail}\n\n{unit}".strip()
                     buffer = maybe_merged if len(maybe_merged) <= chunk_size else unit
                 else:
                     buffer = unit
             else:
-                buffer = unit
+                # Unit itself exceeds chunk_size; emit sliding windows and keep only the
+                # overlap tail so subsequent units are not prefixed with an oversized buffer.
+                sub_chunks = self._sliding_chunks(document.id, unit, chunk_size, overlap)
+                for sc in sub_chunks:
+                    sc.chunk_index = index
+                    chunks.append(sc)
+                    index += 1
+                buffer = self._tail_with_overlap(unit, overlap)
         if buffer.strip():
             chunks.append(Chunk(document_id=document.id, chunk_index=index, content=buffer.strip()))
         return chunks

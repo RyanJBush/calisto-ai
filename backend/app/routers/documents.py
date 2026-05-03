@@ -68,30 +68,6 @@ def list_documents(
     return [DocumentResponse.model_validate(document) for document in documents]
 
 
-@router.get("/{document_id}", response_model=DocumentDetailResponse)
-def get_document(
-    document_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> DocumentDetailResponse:
-    service = DocumentService(db)
-    document = service.get_document_for_user(document_id, user)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    return DocumentDetailResponse.model_validate(document)
-
-
-@router.get("/{document_id}/ingestion-runs", response_model=list[IngestionRunResponse])
-def get_ingestion_runs(
-    document_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> list[IngestionRunResponse]:
-    service = DocumentService(db)
-    runs = service.get_ingestion_runs(document_id=document_id, organization_id=user.organization_id)
-    return [IngestionRunResponse.model_validate(run) for run in runs]
-
-
 @router.post("/collections", response_model=CollectionResponse)
 def create_collection(
     payload: CollectionCreateRequest,
@@ -114,6 +90,30 @@ def list_collections(
     service = DocumentService(db)
     collections = service.list_collections(user.organization_id)
     return [CollectionResponse.model_validate(item) for item in collections]
+
+
+@router.get("/{document_id}", response_model=DocumentDetailResponse)
+def get_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DocumentDetailResponse:
+    service = DocumentService(db)
+    document = service.get_document_for_user(document_id, user)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return DocumentDetailResponse.model_validate(document)
+
+
+@router.get("/{document_id}/ingestion-runs", response_model=list[IngestionRunResponse])
+def get_ingestion_runs(
+    document_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[IngestionRunResponse]:
+    service = DocumentService(db)
+    runs = service.get_ingestion_runs(document_id=document_id, organization_id=user.organization_id)
+    return [IngestionRunResponse.model_validate(run) for run in runs]
 
 
 @router.post("/{document_id}/access", response_model=DocumentAccessResponse)

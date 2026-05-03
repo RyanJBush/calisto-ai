@@ -1,3 +1,4 @@
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -72,6 +73,8 @@ class IngestionJobService:
                     ingestion_run.completed_at = datetime.now(timezone.utc)
                     ingestion_run.status = "failed" if attempt == max_attempts else "processing"
                     db.commit()
+                    if attempt < max_attempts:
+                        time.sleep(2 ** (attempt - 1))
         finally:
             db.close()
 
