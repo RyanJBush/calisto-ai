@@ -1,120 +1,106 @@
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
+![CI](https://github.com/RyanJBush/Enterprise-RAG-knowledge-platform/actions/workflows/ci.yml/badge.svg)
+
 # Calisto AI
 
-Calisto AI is a production-style monorepo for an enterprise Retrieval-Augmented Generation (RAG) knowledge platform.
+> An enterprise Retrieval-Augmented Generation (RAG) knowledge platform with hybrid retrieval, citation-aware answers, multi-tenant RBAC, and a production-ready document ingestion pipeline — built to explore what it takes to make LLM-powered Q&A trustworthy and auditable at enterprise scale.
 
-## Monorepo Structure
+---
 
-```text
-/backend   FastAPI API, RAG services, JWT auth, RBAC, tests
-/frontend  React + Vite + Tailwind SaaS UI
-/docs      Architecture and engineering guides
-```
+## 🎯 What I Built & Why
 
-## Features
+RAG systems are easy to demo but hard to trust. I built Calisto AI to solve the reliability and accountability gaps that most RAG demos ignore:
 
-- **FastAPI backend** with JWT authentication and RBAC (`Admin`, `Member`, `Viewer`)
-- **Multi-tenant domain models** — organizations, users, documents, chunks, chat sessions/messages
-- **Hybrid retrieval** — vector similarity search + keyword BM25-style search blended with reranking
-- **Semantic chunking** — paragraphs + sentence boundaries with configurable size and overlap
-- **Metadata filtering** — filter by document, collection, section, and tags
-- **Configurable top-k** retrieval with confidence scoring and citation coverage metrics
-- **Citation-aware answers** — every answer is traced back to source chunks with highlighted evidence
-- **Document ingestion pipeline** — PDF, TXT, and Markdown support; deduplication, PII redaction, chunk preview
-- **Background ingestion jobs** with status tracking and retry logic
-- **Admin analytics dashboard** — queries processed, avg latency, top documents, ingestion breakdown, audit logs
-- **Seeded demo dataset** — 5 realistic enterprise documents pre-chunked and indexed for instant querying
-- **React frontend** with polished SaaS layout: sidebar navigation, confidence badges, source preview panel, loading/error states
-- **Docker Compose** deployment ready; SQLite for local dev, PostgreSQL-ready for production
+- **Hybrid retrieval** — vector similarity search + BM25-style keyword search blended with reranking. Pure vector search misses exact-match queries; hybrid retrieval handles both
+- **Citation-aware answers** — every answer is traced back to specific source chunks with relevance scores and highlighted evidence — no black-box generation
+- **Multi-tenant RBAC** — organizations, users, documents, and chat sessions are fully tenant-isolated with Admin/Member/Viewer roles, reflecting real enterprise deployment requirements
+- **Background ingestion with retry** — document processing runs as tracked background jobs with status polling and retry logic, so large document sets don’t block the UI
 
-## Quick Start
+---
+
+## 📷 Features
+
+- **Hybrid retrieval** — vector + BM25 blending with configurable top-k and reranking
+- **Semantic chunking** — paragraph + sentence boundary chunking with configurable size and overlap
+- **Citation-aware answers** — every response traces back to source chunks with confidence scores and highlighted evidence
+- **Document ingestion pipeline** — PDF, TXT, Markdown; deduplication, PII redaction, chunk preview before indexing
+- **Background ingestion jobs** — async processing with status tracking and retry logic
+- **Multi-tenant RBAC** — Admin, Member, Viewer roles with full tenant isolation
+- **Admin analytics dashboard** — query volume, avg latency, top documents, ingestion breakdown, audit logs
+- **Seeded demo dataset** — 5 enterprise knowledge documents pre-chunked and indexed for instant querying
+- **React SaaS UI** — confidence badges, source preview panel, citation cards, latency breakdown
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend API | FastAPI + SQLAlchemy + PostgreSQL |
+| Retrieval | Vector similarity + BM25-style keyword search with reranking |
+| Auth | JWT with RBAC (3 roles, multi-tenant) |
+| Frontend | React + Vite + Tailwind CSS |
+| Infra | Docker Compose + GitHub Actions CI |
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-
+- Docker + Docker Compose
 - Python 3.11+
 - Node.js 20+
-- Docker + Docker Compose (optional, recommended)
 
 ### Local Development
-
 ```bash
 make bootstrap
 cp backend/.env.example backend/.env
 make db-upgrade
-make init
-make run-backend   # http://localhost:8000
-make run-frontend  # http://localhost:5173
+make init                   # seeds demo documents
+make run-backend            # http://localhost:8000
+make run-frontend           # http://localhost:5173
 ```
 
 ### Fast Demo (< 2 minutes)
-
-1. Start the backend and frontend as above.
-2. Open **http://localhost:5173** and log in:
-   - `admin@calisto.ai` / `password123`
-3. Navigate to **Chat** and click one of the example query chips, e.g.:
+1. Start backend and frontend as above
+2. Open `http://localhost:5173` and log in as `admin@calisto.ai` / `password123`
+3. Navigate to **Chat** and try one of the example queries:
    - *"What is the leave policy?"*
    - *"What is the escalation window for P1 incidents?"*
-   - *"How fast do we respond to critical support tickets?"*
-   - *"How often are performance reviews conducted?"*
    - *"What is the data retention period for customer documents?"*
-4. Inspect the response:
-   - **Confidence badge** (green/amber/red) based on retrieval scores
-   - **Citation cards** with relevance %, section label, and chunk reference
-   - **Source Preview panel** with highlighted evidence terms
-   - **Latency breakdown** (rewrite → retrieval → answer)
-   - **Feedback buttons** to rate answers
-5. Go to **Documents** to upload a new file (PDF, TXT, or MD), preview chunks before indexing, and manage collections.
-6. Visit **Dashboard** (admin only) for live platform metrics.
-
-### Seeded Demo Documents
-
-The `make init` command seeds 5 enterprise knowledge documents:
-
-| Document | Content |
-|---|---|
-| Employee Handbook | Leave policy, remote work, expense policy, performance reviews, code of conduct |
-| Security Operations Guide | P1–P4 incident levels, escalation procedures, vulnerability management, access control |
-| Support SLA | Response/resolution time targets by plan, escalation procedure, SLA credits |
-| Engineering Onboarding Guide | Dev workflow, tech stack, deployment process, on-call rotation |
-| Data Retention Policy | Retention periods, backup policy, GDPR/CCPA compliance |
+4. Inspect the **confidence badge**, **citation cards**, **source preview panel**, and **latency breakdown**
+5. Go to **Documents** to upload a new file and preview chunks before indexing
 
 ### Docker Compose
-
 ```bash
 docker compose up --build
 ```
 
-## Backend Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/health` | Health check |
-| POST | `/api/auth/login` | Authenticate and receive JWT |
-| GET | `/api/auth/me` | Current user profile |
-| POST | `/api/documents/upload` | Upload document (PDF/TXT/MD) |
-| POST | `/api/documents/preview-chunks` | Preview chunks before indexing |
-| GET | `/api/documents` | List documents |
-| GET | `/api/documents/{id}` | Document detail with chunks |
-| GET | `/api/documents/{id}/ingestion-runs` | Ingestion run history |
-| POST | `/api/chat/query` | Submit query, receive answer + citations |
-| GET | `/api/chat/history` | Chat history |
-| POST | `/api/chat/feedback` | Submit answer feedback |
-| GET | `/api/admin/analytics/summary` | Platform analytics (admin) |
-
-## Testing and Linting
-
+### Quality Checks
 ```bash
 make lint
 make test
+make db-upgrade   # apply migrations
 ```
 
-## Database Migrations
+---
 
-```bash
-make db-upgrade
-make db-downgrade
+## 🗂️ Repository Structure
+
+```
+backend/    FastAPI API, RAG services, hybrid retrieval, ingestion pipeline, RBAC, tests
+frontend/   React SaaS UI (chat, documents, admin dashboard)
+docs/       Architecture, ports, style guide
 ```
 
-## Demo Credentials (Seeded)
+---
+
+## 👤 Demo Credentials
 
 | Email | Password | Role |
 |---|---|---|
@@ -122,18 +108,37 @@ make db-downgrade
 | `member@calisto.ai` | `password123` | Member |
 | `viewer@calisto.ai` | `password123` | Viewer |
 
-## Architecture Overview
+---
 
-See:
+## 📖 Seeded Demo Documents
 
-- `/docs/ARCHITECTURE.md`
-- `/docs/PORTS.md`
-- `/docs/STYLEGUIDE.md`
+| Document | Content |
+|---|---|
+| Employee Handbook | Leave policy, remote work, expenses, performance reviews, code of conduct |
+| Security Operations Guide | P1–P4 incident levels, escalation, vulnerability management, access control |
+| Support SLA | Response/resolution targets by plan, escalation, SLA credits |
+| Engineering Onboarding | Dev workflow, tech stack, deployment, on-call rotation |
+| Data Retention Policy | Retention periods, backup, GDPR/CCPA compliance |
 
-## Roadmap
+---
+
+## 📝 Key Learnings
+
+- Hybrid retrieval (vector + keyword) meaningfully outperforms pure vector search on exact-match queries — the BM25 component catches terminology that embeddings can miss
+- Citation traceability is what separates a trustworthy enterprise RAG system from a plausible-sounding one; every answer must be auditable back to a source chunk
+- Multi-tenant isolation requires careful data model design upfront — retrofitting RBAC and tenant boundaries into an existing schema is much harder than building them in from the start
+
+---
+
+## 🛣️ Roadmap
 
 - Replace in-memory vector implementation with persistent FAISS index service
-- Add pgvector provider implementation behind vector store interface
+- Add pgvector provider behind the vector store interface
 - Add SSO/SCIM integrations for enterprise identity workflows
-- Add richer metrics dashboards with time-series charts
 - Add OpenAI / Anthropic LLM provider behind the existing `LLMService` interface
+
+---
+
+## 📄 License
+
+MIT
