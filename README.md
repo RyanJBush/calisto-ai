@@ -6,34 +6,76 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 ![CI](https://github.com/RyanJBush/Enterprise-RAG-knowledge-platform/actions/workflows/ci.yml/badge.svg)
 
-# Calisto AI
+# Athena RAG
 
-> An enterprise Retrieval-Augmented Generation (RAG) knowledge platform with hybrid retrieval, citation-aware answers, multi-tenant RBAC, and a production-ready document ingestion pipeline — built to explore what it takes to make LLM-powered Q&A trustworthy and auditable at enterprise scale.
+> A production-style enterprise Retrieval-Augmented Generation (RAG) platform that ingests documents, chunks and embeds them into a vector store, retrieves context-relevant passages for LLM queries, and enforces tenant-level RBAC across the knowledge base.
 
 ---
 
 ## 🎯 What I Built & Why
 
-RAG systems are easy to demo but hard to trust. I built Calisto AI to solve the reliability and accountability gaps that most RAG demos ignore:
+Enterprise RAG is more than plugging a vector DB into an LLM. I built Athena RAG to work through the hard parts: chunking strategy trade-offs, retrieval quality evaluation, and multi-tenant isolation.
 
-- **Hybrid retrieval** — vector similarity search + BM25-style keyword search blended with reranking. Pure vector search misses exact-match queries; hybrid retrieval handles both
-- **Citation-aware answers** — every answer is traced back to specific source chunks with relevance scores and highlighted evidence — no black-box generation
-- **Multi-tenant RBAC** — organizations, users, documents, and chat sessions are fully tenant-isolated with Admin/Member/Viewer roles, reflecting real enterprise deployment requirements
-- **Background ingestion with retry** — document processing runs as tracked background jobs with status polling and retry logic, so large document sets don’t block the UI
+- **Semantic chunking pipeline** — documents are split using a sentence-boundary-aware strategy that preserves context across chunk boundaries, improving retrieval coherence vs. fixed-size splits
+- **Multi-document cross-referencing** — retrieved chunks are ranked across source documents, and contradictory passages are flagged before synthesis
+- **Tenant-isolated RBAC** — each tenant’s knowledge base is logically isolated; retrieval queries are scoped to the requesting tenant’s collection at the vector DB query level
+- **Retrieval evaluation pipeline** — `GET /api/eval/retrieval` scores chunk retrieval quality against a labeled test set for continuous quality monitoring
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client["Client Layer"]
+        UI["React + TypeScript\nKnowledge Base UI"]
+    end
+
+    subgraph API["FastAPI Backend"]
+        R_INGEST["ingest router\n/api/documents"]
+        R_QUERY["query router\n/api/query"]
+        R_EVAL["eval router\n/api/eval"]
+        R_TENANTS["tenants router\n/api/tenants"]
+        R_AUTH["auth router"]
+        RBAC["Tenant-Scoped RBAC"]
+    end
+
+    subgraph RAG["RAG Pipeline"]
+        CHUNKER["Semantic\nChunker"]
+        EMBEDDER["Embedding\nModel"]
+        RETRIEVER["Vector\nRetriever"]
+        RERANKER["Cross-Encoder\nReranker"]
+        CONFLICT["Contradiction\nDetector"]
+        LLM["LLM\nSynthesizer"]
+        EVAL["Retrieval\nEvaluator"]
+    end
+
+    subgraph Store["Storage Layer"]
+        VECTOR[("Vector Store\n(pgvector / FAISS)")]
+        PG[("PostgreSQL\nDocuments · Tenants · Audit")]
+    end
+
+    UI -->|"JWT"| RBAC
+    RBAC --> R_AUTH & R_INGEST & R_QUERY & R_EVAL & R_TENANTS
+    R_INGEST --> CHUNKER --> EMBEDDER --> VECTOR
+    R_QUERY --> RETRIEVER
+    RETRIEVER -->|"tenant-scoped"| VECTOR
+    VECTOR --> RERANKER --> CONFLICT --> LLM
+    R_EVAL --> EVAL
+    R_INGEST & R_QUERY & R_TENANTS --> PG
+```
 
 ---
 
 ## 📷 Features
 
-- **Hybrid retrieval** — vector + BM25 blending with configurable top-k and reranking
-- **Semantic chunking** — paragraph + sentence boundary chunking with configurable size and overlap
-- **Citation-aware answers** — every response traces back to source chunks with confidence scores and highlighted evidence
-- **Document ingestion pipeline** — PDF, TXT, Markdown; deduplication, PII redaction, chunk preview before indexing
-- **Background ingestion jobs** — async processing with status tracking and retry logic
-- **Multi-tenant RBAC** — Admin, Member, Viewer roles with full tenant isolation
-- **Admin analytics dashboard** — query volume, avg latency, top documents, ingestion breakdown, audit logs
-- **Seeded demo dataset** — 5 enterprise knowledge documents pre-chunked and indexed for instant querying
-- **React SaaS UI** — confidence badges, source preview panel, citation cards, latency breakdown
+- **Document ingestion pipeline** — semantic chunking, embedding, and vector store indexing
+- **Tenant-isolated retrieval** — RBAC-scoped queries prevent cross-tenant data access
+- **Cross-encoder reranking** — retrieved chunks reranked for relevance before synthesis
+- **Contradiction detection** — conflicting passages flagged in LLM response
+- **Retrieval evaluation** — scored against labeled test sets for quality monitoring
+- **Knowledge base UI** — document management, query interface, and eval dashboards
+- **Docker Compose** — one-command local stack
 
 ---
 
@@ -42,50 +84,34 @@ RAG systems are easy to demo but hard to trust. I built Calisto AI to solve the 
 | Layer | Technology |
 |---|---|
 | Backend API | FastAPI + SQLAlchemy + PostgreSQL |
-| Retrieval | Vector similarity + BM25-style keyword search with reranking |
-| Auth | JWT with RBAC (3 roles, multi-tenant) |
-| Frontend | React + Vite + Tailwind CSS |
+| Vector Store | pgvector or FAISS |
+| Embeddings | Sentence Transformers |
+| LLM | OpenAI / local model |
+| Frontend | React + Vite + TypeScript |
 | Infra | Docker Compose + GitHub Actions CI |
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Docker + Docker Compose
-- Python 3.11+
-- Node.js 20+
+```bash
+docker compose up --build
+# Backend API docs: http://localhost:8000/docs
+# Frontend:         http://localhost:5173
+```
 
 ### Local Development
 ```bash
-make bootstrap
-cp backend/.env.example backend/.env
-make db-upgrade
-make init                   # seeds demo documents
-make run-backend            # http://localhost:8000
-make run-frontend           # http://localhost:5173
-```
+cd backend && pip install -e .[dev]
+cp .env.example .env   # add your LLM + embedding API keys
+uvicorn app.main:app --reload
 
-### Fast Demo (< 2 minutes)
-1. Start backend and frontend as above
-2. Open `http://localhost:5173` and log in as `admin@calisto.ai` / `password123`
-3. Navigate to **Chat** and try one of the example queries:
-   - *"What is the leave policy?"*
-   - *"What is the escalation window for P1 incidents?"*
-   - *"What is the data retention period for customer documents?"*
-4. Inspect the **confidence badge**, **citation cards**, **source preview panel**, and **latency breakdown**
-5. Go to **Documents** to upload a new file and preview chunks before indexing
-
-### Docker Compose
-```bash
-docker compose up --build
+cd frontend && npm ci && npm run dev
 ```
 
 ### Quality Checks
 ```bash
-make lint
-make test
-make db-upgrade   # apply migrations
+make lint && make test
 ```
 
 ---
@@ -93,49 +119,18 @@ make db-upgrade   # apply migrations
 ## 🗂️ Repository Structure
 
 ```
-backend/    FastAPI API, RAG services, hybrid retrieval, ingestion pipeline, RBAC, tests
-frontend/   React SaaS UI (chat, documents, admin dashboard)
-docs/       Architecture, ports, style guide
+backend/    FastAPI API, RAG pipeline, chunking, retrieval eval, tenant RBAC, tests
+frontend/   React knowledge base UI
+docs/       Architecture, chunking strategy, eval methodology
 ```
-
----
-
-## 👤 Demo Credentials
-
-| Email | Password | Role |
-|---|---|---|
-| `admin@calisto.ai` | `password123` | Admin |
-| `member@calisto.ai` | `password123` | Member |
-| `viewer@calisto.ai` | `password123` | Viewer |
-
----
-
-## 📖 Seeded Demo Documents
-
-| Document | Content |
-|---|---|
-| Employee Handbook | Leave policy, remote work, expenses, performance reviews, code of conduct |
-| Security Operations Guide | P1–P4 incident levels, escalation, vulnerability management, access control |
-| Support SLA | Response/resolution targets by plan, escalation, SLA credits |
-| Engineering Onboarding | Dev workflow, tech stack, deployment, on-call rotation |
-| Data Retention Policy | Retention periods, backup, GDPR/CCPA compliance |
 
 ---
 
 ## 📝 Key Learnings
 
-- Hybrid retrieval (vector + keyword) meaningfully outperforms pure vector search on exact-match queries — the BM25 component catches terminology that embeddings can miss
-- Citation traceability is what separates a trustworthy enterprise RAG system from a plausible-sounding one; every answer must be auditable back to a source chunk
-- Multi-tenant isolation requires careful data model design upfront — retrofitting RBAC and tenant boundaries into an existing schema is much harder than building them in from the start
-
----
-
-## 🛣️ Roadmap
-
-- Replace in-memory vector implementation with persistent FAISS index service
-- Add pgvector provider behind the vector store interface
-- Add SSO/SCIM integrations for enterprise identity workflows
-- Add OpenAI / Anthropic LLM provider behind the existing `LLMService` interface
+- Chunking strategy is the highest-leverage variable in RAG quality — sentence-boundary-aware splits consistently outperform fixed-size windows on retrieval coherence
+- Tenant isolation must be enforced at the vector query level, not just the API layer; row-level filtering at the DB is the only reliable guard
+- Retrieval evaluation against labeled test sets is the only way to detect quality regressions when swapping embedding models or chunking strategies
 
 ---
 
