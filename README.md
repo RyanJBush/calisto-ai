@@ -6,7 +6,11 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 ![CI](https://github.com/RyanJBush/Enterprise-RAG-knowledge-platform/actions/workflows/ci.yml/badge.svg)
 
-# Athena RAG
+# Callisto
+
+**Enterprise RAG Knowledge Platform**
+
+[**🔗 View Live Preview →**](https://www.perplexity.ai/computer/a/callisto-preview-project-3-of-lCA5DWRgQoa4AN6VYPXAUQ)
 
 > A production-style enterprise Retrieval-Augmented Generation (RAG) platform that ingests documents, chunks and embeds them into a vector store, retrieves context-relevant passages for LLM queries, and enforces tenant-level RBAC across the knowledge base.
 
@@ -14,7 +18,7 @@
 
 ## 🎯 What I Built & Why
 
-Enterprise RAG is more than plugging a vector DB into an LLM. I built Athena RAG to work through the hard parts: chunking strategy trade-offs, retrieval quality evaluation, and multi-tenant isolation.
+Enterprise RAG is more than plugging a vector DB into an LLM. I built Callisto to work through the hard parts: chunking strategy trade-offs, retrieval quality evaluation, and multi-tenant isolation.
 
 - **Semantic chunking pipeline** — documents are split using a sentence-boundary-aware strategy that preserves context across chunk boundaries, improving retrieval coherence vs. fixed-size splits
 - **Multi-document cross-referencing** — retrieved chunks are ranked across source documents, and contradictory passages are flagged before synthesis
