@@ -1,143 +1,285 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-38B2AC?style=flat&logo=tailwindcss&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-CA4245?style=flat)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 ![CI](https://github.com/RyanJBush/Enterprise-RAG-knowledge-platform/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-# Callisto
+# Callisto — Enterprise RAG Knowledge Platform
 
-**Enterprise RAG Knowledge Platform**
+> **One-liner:** A multi-tenant Retrieval-Augmented Generation (RAG) platform that ingests
+> documents, chunks and embeds them, and answers questions with inline citations —
+> behind JWT auth and organization-scoped RBAC.
 
-[**🔗 View Live Preview →**](https://www.perplexity.ai/computer/a/callisto-preview-project-3-of-lCA5DWRgQoa4AN6VYPXAUQ)
+Callisto is a portfolio project by [Ryan Bush](https://github.com/RyanJBush) (Information
+Science, University of Maryland) that walks through the full RAG stack end to end:
+ingestion, chunking, hybrid retrieval, reranking, grounded answer generation,
+multi-tenant isolation, and a reproducible retrieval-evaluation harness. It is
+designed to be run locally in one command and read end-to-end as a learning
+artifact.
 
-> A production-style enterprise Retrieval-Augmented Generation (RAG) platform that ingests documents, chunks and embeds them into a vector store, retrieves context-relevant passages for LLM queries, and enforces tenant-level RBAC across the knowledge base.
-
----
-
-## 🎯 What I Built & Why
-
-Enterprise RAG is more than plugging a vector DB into an LLM. I built Callisto to work through the hard parts: chunking strategy trade-offs, retrieval quality evaluation, and multi-tenant isolation.
-
-- **Semantic chunking pipeline** — documents are split using a sentence-boundary-aware strategy that preserves context across chunk boundaries, improving retrieval coherence vs. fixed-size splits
-- **Multi-document cross-referencing** — retrieved chunks are ranked across source documents, and contradictory passages are flagged before synthesis
-- **Tenant-isolated RBAC** — each tenant’s knowledge base is logically isolated; retrieval queries are scoped to the requesting tenant’s collection at the vector DB query level
-- **Retrieval evaluation pipeline** — `GET /api/eval/retrieval` scores chunk retrieval quality against a labeled test set for continuous quality monitoring
+[**View Live Preview →**](https://www.perplexity.ai/computer/a/callisto-preview-project-3-of-lCA5DWRgQoa4AN6VYPXAUQ)
 
 ---
 
-## 🏗️ Architecture
+## Recruiter summary
+
+- **Why it exists.** Enterprises sitting on internal documents (HR policies,
+  runbooks, security guides) need a way to query them in natural language without
+  leaking data across teams. Callisto is a working reference for how that system
+  is wired together: ingestion → vector + keyword retrieval → reranking →
+  grounded answer with citations → audit log.
+- **What's actually built.** ~2,200 LOC of typed Python (FastAPI + SQLAlchemy 2.0),
+  a React + Vite + Tailwind UI, 15 REST endpoints, ~100 passing pytest tests,
+  Alembic migrations, JWT auth, role-based access control, an in-memory rate
+  limiter, request metrics, an audit log, Docker Compose for the full stack,
+  and a GitHub Actions CI pipeline.
+- **What's intentionally simple.** Embeddings are a deterministic 32-dim hash and
+  the "LLM" is a heuristic that composes an answer from the top-ranked chunks.
+  Both sit behind swap-in interfaces (`EmbeddingService`, `LLMService`) so the
+  demo runs with **no external API keys**. See
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the production-swap matrix.
+
+---
+
+## Core features
+
+- **Document ingestion pipeline** — sentence-boundary-aware chunking with
+  configurable size/overlap and a sliding-window fallback for oversize units.
+- **Hybrid retrieval** — cosine vector search blended with keyword overlap,
+  document-title metadata signals, and a weighted reranker.
+- **Grounded answers with citations** — every assistant reply lists the
+  contributing chunk IDs and source documents, plus a confidence and
+  citation-coverage score.
+- **Multi-tenant isolation** — every document, chunk, and retrieval query is
+  filtered by the requesting user's `organization_id`.
+- **RBAC** — admin / member / viewer roles enforced via FastAPI dependencies,
+  with per-document access grants on top.
+- **Retrieval evaluation harness** — a labeled query set plus a script that
+  reports source hit-rate, keyword coverage, and latency
+  ([docs/EVALUATION.md](docs/EVALUATION.md)).
+- **Audit log** — ingestion, retrieval, and admin actions are recorded for
+  compliance review.
+- **Containerized stack** — `docker compose up` brings up Postgres + backend
+  + frontend.
+
+---
+
+## Tech stack
+
+| Layer | Tech |
+|---|---|
+| Backend | FastAPI · SQLAlchemy 2.0 · Pydantic · Alembic · numpy · faiss-cpu · pypdf |
+| Frontend | React 18 · Vite · Tailwind · axios · react-router |
+| Storage | SQLite (default) / PostgreSQL via `DATABASE_URL` |
+| Auth | JWT (python-jose) · passlib + bcrypt |
+| Infra | Docker · Docker Compose · GitHub Actions · Makefile |
+| Testing | pytest · httpx · ruff |
+
+---
+
+## Architecture
 
 ```mermaid
-flowchart TD
-    subgraph Client["Client Layer"]
-        UI["React + TypeScript\nKnowledge Base UI"]
+flowchart LR
+    UI["React + Vite UI"] -->|"JWT"| API
+    subgraph API["FastAPI"]
+        AUTH["auth router"]
+        DOCS["documents router"]
+        CHAT["chat router"]
+        ADMIN["admin router"]
     end
+    DOCS --> ING["IngestionService\n(semantic chunker)"]
+    ING --> EMB["EmbeddingService\n(deterministic hash · swap-in)"]
+    EMB --> IDX["EmbeddingIndexService\n+ FAISS in-memory"]
+    CHAT --> RET["RetrievalService\nvector + keyword + metadata"]
+    RET --> RR["RerankService\nweighted blend"]
+    RR --> LLM["LLMService\nheuristic grounded answer · swap-in"]
+    API --> DB[("SQLite / Postgres\nusers · docs · chunks · audit")]
+    API --> AUDIT["AuditService"]
+```
 
-    subgraph API["FastAPI Backend"]
-        R_INGEST["ingest router\n/api/documents"]
-        R_QUERY["query router\n/api/query"]
-        R_EVAL["eval router\n/api/eval"]
-        R_TENANTS["tenants router\n/api/tenants"]
-        R_AUTH["auth router"]
-        RBAC["Tenant-Scoped RBAC"]
-    end
+Full diagram + production-swap matrix: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-    subgraph RAG["RAG Pipeline"]
-        CHUNKER["Semantic\nChunker"]
-        EMBEDDER["Embedding\nModel"]
-        RETRIEVER["Vector\nRetriever"]
-        RERANKER["Cross-Encoder\nReranker"]
-        CONFLICT["Contradiction\nDetector"]
-        LLM["LLM\nSynthesizer"]
-        EVAL["Retrieval\nEvaluator"]
-    end
+---
 
-    subgraph Store["Storage Layer"]
-        VECTOR[("Vector Store\n(pgvector / FAISS)")]
-        PG[("PostgreSQL\nDocuments · Tenants · Audit")]
-    end
+## Repository structure
 
-    UI -->|"JWT"| RBAC
-    RBAC --> R_AUTH & R_INGEST & R_QUERY & R_EVAL & R_TENANTS
-    R_INGEST --> CHUNKER --> EMBEDDER --> VECTOR
-    R_QUERY --> RETRIEVER
-    RETRIEVER -->|"tenant-scoped"| VECTOR
-    VECTOR --> RERANKER --> CONFLICT --> LLM
-    R_EVAL --> EVAL
-    R_INGEST & R_QUERY & R_TENANTS --> PG
+```
+backend/      FastAPI app, services, models, alembic migrations, tests
+  app/
+    routers/    HTTP layer (auth, documents, chat, admin, health)
+    services/   Domain workflows (ingestion, embedding, retrieval, rerank, ...)
+    models/     SQLAlchemy ORM
+    schemas/    Pydantic contracts
+    core/       Auth, JWT, RBAC, logging, metrics, rate limiting
+    db/         Engine, session, demo seed
+frontend/     React + Vite + Tailwind SPA
+data/samples/ Seed documents + labeled retrieval-eval set
+docs/         Architecture, API reference, evaluation methodology, resume bullets
+scripts/      Quickstart + retrieval evaluation
+.github/      CI workflow + issue / PR templates
 ```
 
 ---
 
-## 📷 Features
+## Quick start
 
-- **Document ingestion pipeline** — semantic chunking, embedding, and vector store indexing
-- **Tenant-isolated retrieval** — RBAC-scoped queries prevent cross-tenant data access
-- **Cross-encoder reranking** — retrieved chunks reranked for relevance before synthesis
-- **Contradiction detection** — conflicting passages flagged in LLM response
-- **Retrieval evaluation** — scored against labeled test sets for quality monitoring
-- **Knowledge base UI** — document management, query interface, and eval dashboards
-- **Docker Compose** — one-command local stack
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend API | FastAPI + SQLAlchemy + PostgreSQL |
-| Vector Store | pgvector or FAISS |
-| Embeddings | Sentence Transformers |
-| LLM | OpenAI / local model |
-| Frontend | React + Vite + TypeScript |
-| Infra | Docker Compose + GitHub Actions CI |
-
----
-
-## 🚀 Quick Start
-
+### Option A — Docker Compose (full stack)
 ```bash
 docker compose up --build
-# Backend API docs: http://localhost:8000/docs
-# Frontend:         http://localhost:5173
+# Backend  → http://localhost:8000  (OpenAPI docs at /docs)
+# Frontend → http://localhost:5173
 ```
 
-### Local Development
+### Option B — Local
 ```bash
-cd backend && pip install -e .[dev]
-cp .env.example .env   # add your LLM + embedding API keys
-uvicorn app.main:app --reload
-
-cd frontend && npm ci && npm run dev
+./scripts/quickstart.sh           # installs backend + frontend deps, seeds DB
+make run-backend                  # in one terminal
+make run-frontend                 # in another
 ```
 
-### Quality Checks
+### Demo credentials
+Seeded on first run:
+
+| Email | Password | Role |
+|---|---|---|
+| `admin@calisto.ai` | `password123` | admin |
+| `member@calisto.ai` | `password123` | member |
+| `viewer@calisto.ai` | `password123` | viewer |
+
+---
+
+## Demo workflow (curl)
+
 ```bash
-make lint && make test
+# 1. Log in as the seeded admin
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@calisto.ai","password":"password123"}' | jq -r .access_token)
+
+# 2. Upload a document
+curl -s -X POST http://localhost:8000/api/documents/upload \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d @- <<'JSON'
+{
+  "title": "Employee Handbook",
+  "source_name": "employee_handbook.txt",
+  "content": "Employees accrue 15 days of paid time off per year..."
+}
+JSON
+
+# 3. Ask a question
+curl -s -X POST http://localhost:8000/api/chat/query \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"query":"How many PTO days do employees get?","top_k":3}' | jq
 ```
+
+The response includes the answer, citations (with chunk IDs and snippets),
+confidence score, and a `latency_breakdown_ms` for retrieve / rerank / generate.
+
+Full API reference: [docs/API.md](docs/API.md).
 
 ---
 
-## 🗂️ Repository Structure
+## Sample data
 
+Three plain-text knowledge-base documents and a labeled evaluation set live in
+[`data/samples/`](data/samples). Use them with the eval script:
+
+```bash
+make run-backend &
+python scripts/evaluate_retrieval.py
 ```
-backend/    FastAPI API, RAG pipeline, chunking, retrieval eval, tenant RBAC, tests
-frontend/   React knowledge base UI
-docs/       Architecture, chunking strategy, eval methodology
-```
+
+The script logs in, uploads the samples, runs the eval queries, and reports
+source hit-rate, keyword coverage, and latency. See
+[docs/EVALUATION.md](docs/EVALUATION.md).
 
 ---
 
-## 📝 Key Learnings
+## Environment variables
 
-- Chunking strategy is the highest-leverage variable in RAG quality — sentence-boundary-aware splits consistently outperform fixed-size windows on retrieval coherence
-- Tenant isolation must be enforced at the vector query level, not just the API layer; row-level filtering at the DB is the only reliable guard
-- Retrieval evaluation against labeled test sets is the only way to detect quality regressions when swapping embedding models or chunking strategies
+Copy `backend/.env.example` to `backend/.env` and adjust:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `APP_NAME` | `Calisto AI` | shown in OpenAPI |
+| `ENVIRONMENT` | `development` | |
+| `DATABASE_URL` | `sqlite:///./calisto.db` | switch to `postgresql+psycopg://...` for Postgres |
+| `JWT_SECRET` | `change-me-in-production` | **must be changed for any real use** |
+| `JWT_ALGORITHM` | `HS256` | |
+| `JWT_EXP_MINUTES` | `60` | token lifetime |
+| `RATE_LIMIT_PER_MINUTE` | `300` | in-memory limiter |
+| `CORS_ORIGINS` | `http://localhost:5173` | comma-separated |
+| `LLM_PROVIDER` | `heuristic` | current implementation; future: `openai`, `anthropic`, `local` |
+| `LLM_MODEL` | `calisto-grounded-v1` | |
 
 ---
 
-## 📄 License
+## Testing & quality
 
-MIT
+```bash
+make lint           # ruff (backend) + eslint (frontend)
+make test           # pytest (~100 backend tests) + frontend build
+```
+
+The CI workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs
+both jobs on every push and pull request.
+
+---
+
+## Screenshots
+
+Drop UI screenshots into [`docs/screenshots/`](docs/screenshots) and reference
+them here once captured. See [docs/screenshots/README.md](docs/screenshots/README.md)
+for the suggested set (dashboard, documents, chat, admin).
+
+---
+
+## Limitations and future work
+
+This project is deliberately scoped so it runs end-to-end without external
+services. Honest assessment of what is **not** production-ready today:
+
+- **Embeddings** are a deterministic 32-dim hash. They are great for testing
+  the plumbing and proving the interfaces, but semantic recall is limited.
+  Future work: plug in `sentence-transformers/all-MiniLM-L6-v2` or
+  `text-embedding-3-small` behind the existing `EmbeddingService` interface.
+- **Answer generation** is heuristic — it stitches together top citations into
+  a structured response. There is no real LLM call. Future work: add an
+  `OpenAILLM` provider in `app/services/llm_service.py`.
+- **Vector index** is in-memory FAISS rebuilt on startup. Future work: persist
+  to `pgvector` or a managed vector DB.
+- **Reranker** is a weighted blend of term-overlap and metadata signals.
+  Future work: a real cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`).
+- **Tenant isolation** is enforced at the application layer (every query
+  filters by `organization_id`). Future work: also enforce at the database
+  layer via row-level security policies in Postgres.
+- **No deployment.** The project is run locally; there is no public hosted
+  instance and no real users.
+- **Eval set is small (6 queries).** It demonstrates the methodology, not a
+  production benchmark.
+
+---
+
+## Resume bullets
+
+ATS-ready one-liners are maintained in [docs/RESUME_BULLETS.md](docs/RESUME_BULLETS.md).
+
+Headline bullet:
+
+> Built **Callisto**, an enterprise-style RAG knowledge platform (FastAPI,
+> React, SQLAlchemy, Docker) with sentence-aware chunking, hybrid vector +
+> keyword retrieval, reranking, JWT auth, tenant-scoped RBAC, and a labeled
+> retrieval-evaluation harness; ~2.2k LOC backend Python with ~100 passing
+> pytest tests and GitHub Actions CI.
+
+---
+
+## License
+
+[MIT](LICENSE)

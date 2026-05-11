@@ -1,0 +1,22 @@
+Acme Corp Employee Handbook (Excerpt)
+
+1. Working Hours and Remote Work
+Full-time employees are expected to work 40 hours per week. Core collaboration
+hours are 10:00 AM to 3:00 PM in the employee's primary timezone. Remote work
+is permitted up to three days per week with manager approval.
+
+2. Paid Time Off
+Employees accrue 15 days of paid time off (PTO) per year during their first
+two years of employment, increasing to 20 days thereafter. PTO requests must
+be submitted at least two weeks in advance for absences longer than one day.
+
+3. Expense Reimbursement
+Business expenses are reimbursed within 10 business days after receipt
+submission through the company expense portal. Meals during business travel
+are reimbursed up to $75 per day. Receipts are required for any single
+expense above $25.
+
+4. Information Security
+All employees must complete annual security training. Customer data must
+never be stored on personal devices. Access to production systems requires
+manager approval and is reviewed quarterly.

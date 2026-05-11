@@ -1,0 +1,22 @@
+Acme Platform Engineering Runbook (Excerpt)
+
+Deployment Process
+All production deployments go through the standard CI/CD pipeline. Changes
+must pass unit tests, integration tests, and security scans before being
+promoted to staging. Deploys to production require approval from a second
+engineer.
+
+On-Call Rotations
+The platform team operates a 24/7 on-call rotation. Primary on-call holds
+the pager for one week starting Mondays at 10:00 AM ET. Secondary on-call
+is engaged when the primary does not acknowledge within 10 minutes.
+
+Service Level Objectives
+The API service targets 99.9% monthly availability and a p95 latency under
+300 ms for read endpoints. Error budget burn rate exceeding 2x triggers a
+review of recent changes.
+
+Database Migrations
+Schema migrations are managed with Alembic. Forward and reverse migrations
+must both be tested in staging. Long-running migrations on tables larger
+than 1 million rows must use the online migration playbook.

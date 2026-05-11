@@ -1,0 +1,35 @@
+{
+  "description": "Labeled evaluation set for retrieval quality measurement. Each item lists a query and the source document(s) that should appear in the top retrieved chunks.",
+  "items": [
+    {
+      "query": "How many days of PTO do employees get?",
+      "expected_sources": ["employee_handbook.txt"],
+      "expected_keywords": ["15 days", "PTO"]
+    },
+    {
+      "query": "What is the expense reimbursement limit for meals?",
+      "expected_sources": ["employee_handbook.txt"],
+      "expected_keywords": ["$75", "meals"]
+    },
+    {
+      "query": "How is data encrypted at rest?",
+      "expected_sources": ["security_policy.txt"],
+      "expected_keywords": ["AES-256", "encrypted"]
+    },
+    {
+      "query": "Who approves production deployments?",
+      "expected_sources": ["engineering_runbook.txt"],
+      "expected_keywords": ["second engineer", "approval"]
+    },
+    {
+      "query": "What is the p95 latency SLO for the API?",
+      "expected_sources": ["engineering_runbook.txt"],
+      "expected_keywords": ["300 ms", "p95"]
+    },
+    {
+      "query": "How quickly must security incidents be reported?",
+      "expected_sources": ["security_policy.txt"],
+      "expected_keywords": ["one hour", "incident"]
+    }
+  ]
+}

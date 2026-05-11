@@ -214,3 +214,8 @@ frontend/dist/
 backend/.venv/
 backend/.mypy_cache/
 backend/calisto.db
+backend/test.db
+backend/*.db
+backend/.env
+.env
+.env.local
