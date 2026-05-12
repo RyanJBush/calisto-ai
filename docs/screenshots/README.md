@@ -1,9 +1,9 @@
 # Screenshots
 
 This directory holds UI screenshots that are referenced from the top-level
-`README.md`. **No screenshots have been captured yet for the published repo.**
-The list below is the target set — drop the files in here using the suggested
-names and they will line up with the README references.
+`README.md`. Captures were taken at 1440×900 against a locally-running
+backend (`uvicorn app.main:app`) and frontend (`vite dev`) with the seeded
+demo data from `backend/scripts/init_db.py`.
 
 All target routes already exist in `frontend/src/pages/`.
 
@@ -52,15 +52,31 @@ Or as a small responsive thumbnail:
 
 ## Status
 
-- [ ] `documents.png`
-- [ ] `chat.png`
-- [ ] `admin.png`
-- [ ] `api-docs.png`
-- [ ] `dashboard.png` (optional)
-- [ ] `audit.png` (optional)
-- [ ] `metrics.png` (optional)
-- [ ] `document-detail.png` (optional)
+- [x] `documents.png` — Documents page (upload form, library, ingestion status)
+- [x] `chat.png` — Chat with the seeded PTO question, grounded answer, 3
+      citations with chunk IDs, source preview, latency mode
+- [x] `admin.png` — Settings page (see note below)
+- [x] `api-docs.png` — full Swagger UI showing all 15 endpoints grouped under
+      `health`, `auth`, `documents`, `chat`, `admin`, with `POST /api/chat/query`
+      expanded
+- [x] `dashboard.png` — Dashboard with documents/queries/latency counters and
+      top-indexed documents
+- [x] `audit.png` — pretty-printed `GET /api/admin/audit-logs` JSON response
+- [x] `metrics.png` — pretty-printed `GET /api/admin/analytics/summary` JSON
+      response
+- [ ] `document-detail.png` (optional) — not captured; the current
+      `DocumentsPage` renders all documents on the same page rather than a
+      separate detail route, so a dedicated detail view is not reachable from
+      the UI yet
 
-Until these are captured, the README links here rather than embedding broken
-images, and the *Screenshots / Demo* section in the top-level README is
-explicit that captures are pending.
+### Known gap — `admin.png`
+
+The current `frontend/src/pages/SettingsPage.jsx` is a placeholder card with the
+text *"Configure organization defaults, model providers, and retrieval
+policies in future iterations."* — it does **not** yet render a user list,
+role assignment, or admin-only tools. The screenshot reflects that.
+
+The underlying RBAC and admin endpoints (`/api/admin/...`) are real and
+working; their JSON responses are captured in `metrics.png` and `audit.png`
+as a stand-in. Building out the Settings UI to surface those endpoints is
+follow-up work.
