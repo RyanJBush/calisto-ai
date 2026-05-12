@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 from app.db.session import SessionLocal
 from app.models import Chunk, Document, IngestionRun
-from app.services.embedding_service import EmbeddingService
 from app.services.embedding_index_service import embedding_index_service
+from app.services.embedding_service import EmbeddingService
 from app.services.ingestion_service import IngestionService
 from app.services.security_text_service import SecurityTextService
 

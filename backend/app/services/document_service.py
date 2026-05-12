@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models import Chunk, Collection, Document, DocumentAccess, IngestionRun, User
 from app.schemas.documents import DocumentUploadRequest
-from app.services.content_extraction_service import ContentExtractionService
-from app.services.ingestion_service import IngestionService
 from app.services.audit_service import AuditService
+from app.services.content_extraction_service import ContentExtractionService
 from app.services.ingestion_job_service import ingestion_job_service
+from app.services.ingestion_service import IngestionService
 from app.services.security_text_service import SecurityTextService
 
 

@@ -2,12 +2,11 @@ from collections import Counter
 from dataclasses import dataclass
 
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Chunk, Document
-from app.services.embedding_service import EmbeddingService
 from app.services.embedding_index_service import embedding_index_service
+from app.services.embedding_service import EmbeddingService
 from app.services.rerank_service import RerankService, RetrievalCandidate
 from app.services.text_utils import tokenize
 from app.services.vector_store import SearchResult

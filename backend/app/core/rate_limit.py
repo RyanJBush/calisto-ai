@@ -1,6 +1,7 @@
 import time
 from collections import defaultdict, deque
 
+
 class InMemoryRateLimiter:
     def __init__(self, limit_per_minute: int = 300) -> None:
         self.limit_per_minute = limit_per_minute
