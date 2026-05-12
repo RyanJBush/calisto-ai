@@ -66,15 +66,32 @@ compliance review.
 
 ## What is real vs heuristic
 
-This is a portfolio project, so two pieces are intentionally simple and are
-swap-in points for a production deployment:
+This is a local-demo portfolio project, so four components are intentionally
+simple and are designed as swap-in points for a production deployment. The
+table below is the honest version — none of these call an external service in
+the current implementation.
 
-| Component | Current implementation | Production swap |
-|---|---|---|
-| Embedding | Deterministic 32-dim hash of the chunk text | Sentence Transformers / OpenAI / Cohere embeddings |
-| LLM answer | Heuristic that composes an answer from the top citations | OpenAI / Anthropic / local model via a new `LLMService` provider |
-| Vector index | In-memory FAISS (rebuilt on startup) | pgvector or a managed vector DB |
-| Reranker | Term-overlap + metadata-weighted blend | Cross-encoder (e.g. `cross-encoder/ms-marco-MiniLM-L-6-v2`) |
+| Component | Current implementation | Where it lives | Production swap |
+|---|---|---|---|
+| Embedding | Deterministic 32-dim SHA-256 hash of the chunk text | `app/services/embedding_service.py` | Sentence Transformers (`all-MiniLM-L6-v2`) for local, or OpenAI / Cohere / Voyage hosted embeddings |
+| LLM answer | `HeuristicGroundedLLM` — composes a structured, cited answer from the top retrieved chunks; no model call | `app/services/llm_service.py` | OpenAI / Anthropic / local model behind a new provider in `LLMService`, selected via `LLM_PROVIDER` |
+| Vector index | In-memory FAISS, rebuilt on startup from `chunk_embeddings` | `app/services/embedding_index_service.py`, `app/services/vector_store.py` | `pgvector` or a managed vector DB; warm from a persisted snapshot |
+| Reranker | **Weighted blend** of base score (0.50) + query-term coverage (0.30) + title boost (0.10) + metadata score (0.10). Not a neural cross-encoder. | `app/services/rerank_service.py` | A real cross-encoder such as `cross-encoder/ms-marco-MiniLM-L-6-v2`, or a hosted reranker (Cohere / Voyage) behind the same `RerankService` interface |
 
 The interfaces (`EmbeddingService`, `LLMService`, `VectorStore`, `RerankService`)
-were designed so each can be replaced without touching the routers.
+are explicit seams: each can be replaced without touching the routers or the
+chat service that orchestrates them.
+
+## Honesty notes
+
+- The phrase "cross-encoder reranking" is **not** used in the codebase or the
+  recruiter-facing docs because no cross-encoder is invoked. The reranker is
+  a deterministic weighted scoring function — easy to read, easy to unit test,
+  and entirely sufficient for demonstrating where a real reranker would slot in.
+- The `LLM_MODEL` env var is a label only; no external model is contacted. The
+  `answer_mode` returned by `/api/chat/query` is `grounded_heuristic` precisely
+  so callers cannot mistake it for a real generative answer.
+- Embeddings are deterministic, which means semantic recall is limited. The
+  hybrid retriever leans on keyword and metadata signals to compensate; the
+  retrieval-evaluation harness in `scripts/evaluate_retrieval.py` measures
+  this honestly.
