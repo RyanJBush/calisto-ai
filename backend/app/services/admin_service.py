@@ -1,7 +1,17 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, ChatFeedback, ChatMessage, ChatSession, Chunk, Collection, Document, IngestionRun, User
+from app.models import (
+    AuditLog,
+    ChatFeedback,
+    ChatMessage,
+    ChatSession,
+    Chunk,
+    Collection,
+    Document,
+    IngestionRun,
+    User,
+)
 
 
 class AdminService:

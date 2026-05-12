@@ -5,10 +5,10 @@ from app.core.dependencies import get_current_user, require_roles
 from app.db.session import get_db
 from app.models import User
 from app.schemas.documents import (
-    CollectionCreateRequest,
-    CollectionResponse,
     ChunkPreviewRequest,
     ChunkPreviewResponse,
+    CollectionCreateRequest,
+    CollectionResponse,
     DocumentAccessRequest,
     DocumentAccessResponse,
     DocumentDetailResponse,

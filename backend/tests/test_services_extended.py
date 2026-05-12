@@ -19,7 +19,6 @@ from app.services.retrieval_service import RetrievalFilters, RetrievalService
 from app.services.security_text_service import SecurityTextService
 from app.services.vector_store import FaissVectorStore
 
-
 # ---------------------------------------------------------------------------
 # EmbeddingService
 # ---------------------------------------------------------------------------
