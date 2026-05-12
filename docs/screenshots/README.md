@@ -1,35 +1,22 @@
 # Screenshots Guide
 
-These screenshots support the Callisto README and demo docs.
+This directory contains captured UI screenshots for the Callisto portfolio demo.
 
-## Goal
+## Captured screenshots (present in repo)
+- `documents.png` — document upload and management workflow
+- `chat.png` — query response view with grounded citations
+- `admin.png` — admin/settings interface
+- `api-docs.png` — FastAPI Swagger docs view (`/docs`)
+- `dashboard.png` — dashboard summary view
+- `audit.png` — audit-related UI view
+- `metrics.png` — metrics/observability UI view
 
-Capture the app honestly as a **local demo**, not as a production SaaS dashboard.
+## Suggested usage in docs
+- Prioritize `documents.png`, `chat.png`, `admin.png`, and `api-docs.png` in README/demo narratives.
+- Use `dashboard.png`, `audit.png`, and `metrics.png` as optional supporting visuals.
 
-## Required files
-
-- `documents.png` — document upload workflow
-- `chat.png` — grounded answer with citations visible
-- `admin.png` — settings/admin view as currently implemented
-- `api-docs.png` — FastAPI Swagger page (`/docs`)
-
-## Optional files
-
-- `dashboard.png`
-- `audit.png`
-- `metrics.png`
-
-## Capture rules
-
-- Use a consistent viewport (e.g., 1440x900).
-- Keep sensitive values out of screenshots.
-- Prefer realistic data from seeded demo docs.
-- Do not stage UI elements that do not exist in the app.
-
-## Caption style recommendation
-
-Use captions that match implementation reality, e.g.:
-- “Grounded heuristic answer with citations”
-- “Weighted reranking in retrieval pipeline (backend-driven)”
-- “Admin metrics endpoint via local demo environment”
-
+## Capture checklist (for future refreshes)
+- [ ] Re-capture all screenshots after major UI layout updates.
+- [ ] Keep viewport and theme consistent across captures.
+- [ ] Remove sensitive or local-only values before publishing.
+- [ ] Ensure captions describe implementation reality (demo-scale environment).
