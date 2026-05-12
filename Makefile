@@ -28,3 +28,10 @@ run-backend:
 
 run-frontend:
 	npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173
+
+
+dev:
+	docker compose up --build
+
+smoke-test:
+	python scripts/smoke_test.py

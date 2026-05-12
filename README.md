@@ -1,37 +1,47 @@
-# Callisto — Enterprise RAG Knowledge Platform
+# Callisto — Portfolio RAG Knowledge Platform
 
-A portfolio demo of a retrieval-augmented knowledge assistant with grounded citations.
+A demo-scale retrieval-augmented generation (RAG) system for document indexing, hybrid search, and citation-grounded answer assembly.
 
 ## Recruiter-facing summary
-Callisto is a demo-scale full-stack project that shows how I structure a practical RAG workflow from ingestion through retrieval and answer assembly. I built it to be transparent about tradeoffs: by default it uses deterministic hash-based embeddings, weighted reranking, and heuristic answer synthesis so everything can run locally and be inspected clearly. I am a **University of Maryland student studying Information Science and Electrical Engineering with a Business minor.**
+Callisto is a full-stack portfolio project that shows how I design and implement a practical RAG pipeline, from ingestion to retrieval and answer assembly. I built it to be inspectable and honest: the default stack uses deterministic hash-based embeddings, weighted reranking, and heuristic answer synthesis so the whole workflow can run locally without paid model APIs. I am a **University of Maryland student studying Information Science and Electrical Engineering with a Business minor**.
 
 ## What this project demonstrates
-- End-to-end document QA workflow: upload, chunk, index, retrieve, and cite sources
-- Backend architecture with clear service boundaries (`EmbeddingService`, `RerankService`, `LLMService`)
-- Organization-scoped auth and RBAC patterns for multi-tenant style isolation
-- Honest demo defaults that can be swapped to real model providers
+- Building a complete document QA workflow: ingest → chunk → index → retrieve → synthesize answers with citations.
+- Implementing hybrid retrieval patterns that combine lexical and vector signals.
+- Structuring a FastAPI backend with explicit service boundaries for ingestion, retrieval, reranking, and answer assembly.
+- Designing demo-safe defaults (local embeddings + heuristic synthesis) that can be swapped for real model providers.
 
 ## Tech stack
 - **Backend:** FastAPI, SQLAlchemy, Pydantic, Alembic
-- **Frontend:** React, TypeScript, Vite
-- **Data and retrieval:** PostgreSQL, FAISS, BM25-style lexical retrieval
-- **Dev/runtime:** Docker, Docker Compose
+- **Frontend:** React, Vite
+- **Retrieval/Data:** PostgreSQL, FAISS, lexical retrieval (BM25-style scoring)
+- **Dev tooling:** Docker Compose, Makefile, pytest
 
 ## Architecture overview
-- See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the system flow and extension points.
-- Current retrieval stack uses **weighted reranking** (feature blending), not cross-encoder inference.
-- Default answer generation is **heuristic answer synthesis** / template-based answer assembly.
-- Uses deterministic hash-based embeddings by default; swap in a real embedding model for semantic search.
+Callisto follows a straightforward RAG flow: documents are uploaded, chunked, embedded/indexed, retrieved through hybrid search, then reordered with weighted reranking before template-based answer assembly.
+
+- Architecture notes: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- API surface: [`docs/API.md`](docs/API.md)
+
+Implementation honesty notes:
+- Answers are assembled via **heuristic answer synthesis** (template-based), not remote LLM generation by default.
+- Candidate ordering uses **weighted reranking** over retrieval features, not cross-encoder reranking.
+- Embeddings are **deterministic hash-based** by default so the app works offline/local-first; you can swap in a real embedding model.
 
 ## How to run locally
+### One-command setup
 ```bash
-git clone https://github.com/RyanJBush/Enterprise-RAG-knowledge-platform.git
-cd Enterprise-RAG-knowledge-platform
-docker compose up --build
+make bootstrap
 ```
+
+### One-command app start (Docker)
+```bash
+make dev
+```
+
 Then open:
+- Frontend: `http://localhost:5173`
 - API docs: `http://localhost:8000/docs`
-- Frontend app: `http://localhost:5173`
 
 Seeded users:
 - `admin@calisto.ai` / `password123`
@@ -39,27 +49,33 @@ Seeded users:
 - `viewer@calisto.ai` / `password123`
 
 ## Demo workflow
-1. Log in as `admin@calisto.ai`.
-2. Upload documents in the Documents view.
-3. Open chat/query and ask a document-grounded question.
-4. Review retrieved context and citation-backed response.
-5. Inspect API behavior at `/docs` for endpoint coverage.
+1. Run `make bootstrap` (first time) and `make dev`.
+2. Sign in as `admin@calisto.ai`.
+3. Open **Documents** and upload one of the files from `data/samples/` (or paste text content).
+4. Open **Chat** and ask a question tied to that document.
+5. Review citations/snippets returned with the answer.
+6. (Optional) Use `python scripts/evaluate_retrieval.py` to run the sample retrieval evaluation set against the local API.
 
-## Screenshots / demo
-Available screenshots in [`docs/screenshots/`](docs/screenshots/):
-- Documents workflow: `documents.png`
-- Chat with citations: `chat.png`
-- Admin/settings view: `admin.png`
-- API docs page: `api-docs.png`
-- Additional UI captures: `dashboard.png`, `audit.png`, `metrics.png`
+## Screenshots / Portfolio Preview
+Repository screenshots are listed in [`docs/screenshots/README.md`](docs/screenshots/README.md).
 
-Portfolio Preview page: [`docs/preview/index.html`](docs/preview/index.html)
+Current screenshots:
+- `docs/screenshots/dashboard.png`
+- `docs/screenshots/documents.png`
+- `docs/screenshots/chat.png`
+- `docs/screenshots/admin.png`
+- `docs/screenshots/api-docs.png`
+- `docs/screenshots/audit.png`
+- `docs/screenshots/metrics.png`
+
+Design/portfolio page:
+- [`docs/preview/index.html`](docs/preview/index.html)
 
 ## Limitations and future work
-- Default embedding quality is limited because embeddings are deterministic and hash-based.
-- Answer output is assembled heuristically rather than generated by a remote LLM API by default.
-- Reranking is weighted fusion today; adding cross-encoder reranking is a future upgrade path.
-- FAISS index and local setup are tuned for demo-scale usage, not hosted production operations.
+- Default embeddings are deterministic/hash-based, so semantic quality is limited compared with modern embedding APIs.
+- Answer synthesis is template-based; integrating a real LLM provider is planned but not required for local demo use.
+- Retrieval is tuned for demo-scale local datasets, not large hosted corpora.
+- There is no full CI deployment pipeline in this repository today.
 
 ## Resume bullets
 - [`docs/resume-bullets.md`](docs/resume-bullets.md)
