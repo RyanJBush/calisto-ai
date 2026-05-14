@@ -1,0 +1,18 @@
+# CI-safe requirements — uses SQLite, no PostgreSQL driver needed
+# psycopg[binary] intentionally omitted: conftest.py sets DATABASE_URL=sqlite:///
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+sqlalchemy==2.0.40
+python-jose[cryptography]==3.4.0
+passlib[bcrypt]==1.7.4
+pydantic-settings==2.8.1
+python-multipart==0.0.22
+numpy==2.2.5
+faiss-cpu==1.10.0
+alembic==1.14.1
+pytest==8.3.5
+httpx==0.28.1
+ruff==0.11.7
+email-validator==2.3.0
+pypdf==5.4.0
+rank-bm25==0.2.2
