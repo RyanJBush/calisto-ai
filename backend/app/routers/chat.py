@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
@@ -58,6 +61,58 @@ def query(
         source_alignment=source_alignment,
         citations=citations,
     )
+
+
+@router.post("/query/stream")
+def query_stream(
+    payload: ChatQueryRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    service = ChatService(db)
+    response = service.query(
+        user,
+        payload.query,
+        payload.session_id,
+        payload.filters,
+        grounded_mode=payload.grounded_mode,
+        top_k=payload.top_k,
+    )
+    (
+        session,
+        assistant_message_id,
+        answer,
+        answer_mode,
+        evidence_summary,
+        source_alignment,
+        citations,
+        insufficient_evidence,
+        confidence_score,
+        citation_coverage,
+        rewritten_query,
+        latency_breakdown_ms,
+    ) = response
+
+    def event_stream():
+        for token in answer.split():
+            yield f"data: {json.dumps({'token': token + ' '})}\n\n"
+        final_payload = {
+            'session_id': session.id,
+            'assistant_message_id': assistant_message_id,
+            'answer_mode': answer_mode,
+            'evidence_summary': evidence_summary,
+            'rewritten_query': rewritten_query,
+            'confidence_score': confidence_score,
+            'citation_coverage': citation_coverage,
+            'insufficient_evidence': insufficient_evidence,
+            'latency_breakdown_ms': latency_breakdown_ms,
+            'source_alignment': source_alignment,
+            'citations': [citation.model_dump() for citation in citations],
+            'done': True,
+        }
+        yield f"data: {json.dumps(final_payload)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type='text/event-stream')
 
 
 @router.get("/history", response_model=list[ChatMessageResponse])

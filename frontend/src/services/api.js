@@ -114,3 +114,30 @@ export async function previewChunks(payload) {
   const { data } = await api.post("/api/documents/preview-chunks", payload);
   return data;
 }
+
+export async function streamChatQuery(payload, onEvent) {
+  const token = getToken();
+  const response = await fetch(`${api.defaults.baseURL}/api/chat/query/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const event of events) {
+      if (!event.startsWith("data:")) continue;
+      const jsonText = event.replace(/^data:\s*/, "");
+      onEvent(JSON.parse(jsonText));
+    }
+  }
+}
