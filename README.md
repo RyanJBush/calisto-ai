@@ -1,5 +1,7 @@
 # Callisto — Portfolio RAG Knowledge Platform
 
+![CI](https://github.com/RyanJBush/Enterprise-RAG-knowledge-platform/actions/workflows/ci.yml/badge.svg)
+
 A demo-scale retrieval-augmented generation (RAG) system for document indexing, hybrid search, and citation-grounded answer assembly.
 
 ## Recruiter-facing summary
@@ -70,6 +72,10 @@ Current screenshots:
 
 Design/portfolio page:
 - [`docs/preview/index.html`](docs/preview/index.html)
+
+
+## Architecture Decisions
+- Chunking strategy: [`docs/chunking-strategy.md`](docs/chunking-strategy.md)
 
 ## Limitations and future work
 - Default embeddings are deterministic/hash-based, so semantic quality is limited compared with modern embedding APIs.

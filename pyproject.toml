@@ -1,0 +1,30 @@
+[project]
+name = "callisto-enterprise-rag"
+version = "1.0.0"
+description = "Callisto enterprise RAG knowledge platform"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Ryan J Bush" }]
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "sqlalchemy",
+  "pydantic",
+  "rank-bm25",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "flake8",
+  "black",
+  "mypy",
+]
+test = [
+  "httpx",
+  "pytest-asyncio",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

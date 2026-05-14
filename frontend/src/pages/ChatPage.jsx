@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { fetchHistory, listDocuments, queryChat, submitChatFeedback } from "../services/api";
+import { fetchHistory, listDocuments, streamChatQuery, submitChatFeedback } from "../services/api";
 
 const DEMO_QUERIES = [
   "What is the leave policy?",
@@ -136,25 +136,35 @@ export default function ChatPage() {
     setFeedbackStatus("");
     setFeedbackComment("");
     try {
-      const response = await queryChat({
-        query,
-        filters: collectionFilterId ? { collection_id: Number(collectionFilterId) } : undefined,
-      });
-      const orderedCitations = [...response.citations].sort(
+      let finalResponse = null;
+      await streamChatQuery(
+        {
+          query,
+          filters: collectionFilterId ? { collection_id: Number(collectionFilterId) } : undefined,
+        },
+        (eventData) => {
+          if (eventData.token) {
+            setAnswer((prev) => prev + eventData.token);
+          }
+          if (eventData.done) {
+            finalResponse = eventData;
+          }
+        }
+      );
+      const orderedCitations = [...(finalResponse?.citations || [])].sort(
         (a, b) => b.retrieval_score - a.retrieval_score
       );
-      setAnswer(response.answer);
       setCitations(orderedCitations);
       setSelectedCitation(orderedCitations[0] || null);
       setSourceDrawerOpen(Boolean(orderedCitations[0]));
-      setAnswerMode(response.answer_mode);
-      setEvidenceSummary(response.evidence_summary || []);
-      setConfidenceScore(response.confidence_score);
-      setCitationCoverage(response.citation_coverage);
-      setInsufficientEvidence(response.insufficient_evidence);
-      setRewrittenQuery(response.rewritten_query);
-      setLatencyBreakdown(response.latency_breakdown_ms);
-      setAssistantMessageId(response.assistant_message_id);
+      setAnswerMode(finalResponse?.answer_mode);
+      setEvidenceSummary(finalResponse?.evidence_summary || []);
+      setConfidenceScore(finalResponse?.confidence_score);
+      setCitationCoverage(finalResponse?.citation_coverage);
+      setInsufficientEvidence(finalResponse?.insufficient_evidence);
+      setRewrittenQuery(finalResponse?.rewritten_query);
+      setLatencyBreakdown(finalResponse?.latency_breakdown_ms);
+      setAssistantMessageId(finalResponse?.assistant_message_id);
       await loadHistory();
       setTimeout(() => answerRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch {
